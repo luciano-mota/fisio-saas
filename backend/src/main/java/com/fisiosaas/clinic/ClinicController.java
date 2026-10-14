@@ -44,7 +44,13 @@ public class ClinicController {
         // Site público: estilo visual, par de fontes e frase de destaque (nulos = mantém o que está salvo).
         @Pattern(regexp = STYLES, message = "estilo inválido") String siteStyle,
         @Pattern(regexp = FONTS, message = "fontes inválidas") String siteFonts,
-        @Size(max = 140) String siteHeadline) {}
+        @Size(max = 140) String siteHeadline,
+        // Conteúdo de confiança do site (nulos = mantém o que está salvo; texto em branco = apaga).
+        @Size(max = 600) String siteEducation,
+        @Size(max = 300) String siteHours,
+        @Size(max = 300) String siteServiceArea,
+        Boolean siteShowMap,
+        Boolean siteShowTestimonials) {}
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
@@ -67,7 +73,8 @@ public class ClinicController {
             UPDATE clinics SET slug = ?, display_name = ?, professional_name = ?, crefito = ?, document = ?,
                    whatsapp = ?, address = ?, about = ?, color_primary = ?, color_secondary = ?,
                    color_accent = ?, public_page_enabled = ?, no_show_consumes_session = ?,
-                   site_style = ?, site_fonts = ?, site_headline = ?, updated_at = now()
+                   site_style = ?, site_fonts = ?, site_headline = ?, site_education = ?, site_hours = ?,
+                   site_service_area = ?, site_show_map = ?, site_show_testimonials = ?, updated_at = now()
              WHERE id = ?""",
             body.slug() == null ? old.slug() : body.slug(),
             body.displayName().trim(), blankToNull(body.professionalName()), blankToNull(body.crefito()),
@@ -80,7 +87,13 @@ public class ClinicController {
             body.noShowConsumesSession() == null ? old.noShowConsumesSession() : body.noShowConsumesSession(),
             body.siteStyle() == null ? old.siteStyle() : body.siteStyle(),
             body.siteFonts() == null ? old.siteFonts() : body.siteFonts(),
-            body.siteHeadline() == null ? old.siteHeadline() : blankToNull(body.siteHeadline()), clinicId);
+            keepOrClean(body.siteHeadline(), old.siteHeadline()),
+            keepOrClean(body.siteEducation(), old.siteEducation()),
+            keepOrClean(body.siteHours(), old.siteHours()),
+            keepOrClean(body.siteServiceArea(), old.siteServiceArea()),
+            body.siteShowMap() == null ? old.siteShowMap() : body.siteShowMap(),
+            body.siteShowTestimonials() == null ? old.siteShowTestimonials() : body.siteShowTestimonials(),
+            clinicId);
         return load(clinicId);
     }
 
@@ -95,7 +108,13 @@ public class ClinicController {
             rs.getString("color_primary"), rs.getString("color_secondary"), rs.getString("color_accent"),
             rs.getBoolean("public_page_enabled"), rs.getBoolean("no_show_consumes_session"),
             (Long) rs.getObject("logo_version"), rs.getString("site_style"), rs.getString("site_fonts"),
-            rs.getString("site_headline")), clinicId);
+            rs.getString("site_headline"), rs.getString("site_education"), rs.getString("site_hours"),
+            rs.getString("site_service_area"), rs.getBoolean("site_show_map"), rs.getBoolean("site_show_testimonials")),
+            clinicId);
+    }
+
+    private static String keepOrClean(String value, String old) {
+        return value == null ? old : blankToNull(value);
     }
 
     static String blankToNull(String value) {

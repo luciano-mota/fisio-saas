@@ -8,7 +8,13 @@ export type ClinicProfile = {
   colorPrimary: string; colorSecondary: string; colorAccent: string; publicPageEnabled: boolean;
   noShowConsumesSession: boolean; logoVersion: number | null;
   siteStyle: string; siteFonts: string; siteHeadline: string | null;
+  siteEducation: string | null; siteHours: string | null; siteServiceArea: string | null;
+  siteShowMap: boolean; siteShowTestimonials: boolean;
 };
+
+export type SitePhoto = { id: string; kind: 'COVER' | 'GALLERY'; caption: string | null; width: number; height: number; position: number };
+export type Testimonial = { id: string; authorName: string; text: string; position: number; consentConfirmedAt: string };
+export type Faq = { id: string; question: string; answer: string; position: number };
 
 export type Service = {
   id: string; name: string; description: string | null; durationMinutes: number; price: number | null;
@@ -43,6 +49,7 @@ export type PatientPackage = {
   used: number; scheduled: number; remaining: number; expired: boolean; lowBalance: boolean;
 };
 
+export type PublicPhoto = { id: string; caption: string | null; width: number; height: number };
 export type PublicPackage = { id: string; name: string; sessionCount: number; price: number | null; validityDays: number | null };
 export type PublicService = {
   id: string; name: string; description: string | null; durationMinutes: number; price: number | null;
@@ -51,7 +58,11 @@ export type PublicService = {
 export type PublicClinic = {
   slug: string; displayName: string; professionalName: string | null; crefito: string | null;
   whatsapp: string | null; address: string | null; about: string | null; theme: Theme; logoVersion: number | null;
-  site: { style: string; fonts: string; headline: string | null };
+  site: {
+    style: string; fonts: string; headline: string | null; education: string | null; hours: string | null;
+    serviceArea: string | null; showMap: boolean; cover: PublicPhoto | null; gallery: PublicPhoto[];
+    testimonials: { authorName: string; text: string }[]; faqs: { question: string; answer: string }[];
+  };
   services: PublicService[];
 };
 
@@ -120,6 +131,18 @@ export async function uploadLogo(png: Blob): Promise<void> {
     method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': await csrf() }, body: form
   });
   await handle<void>(res);
+}
+
+/** Envia uma foto do site (JPEG já comprimido no navegador). */
+export async function uploadPhoto(jpeg: Blob, kind: 'COVER' | 'GALLERY', caption?: string): Promise<SitePhoto> {
+  const form = new FormData();
+  form.append('file', jpeg, 'foto.jpg');
+  form.append('kind', kind);
+  if (caption) form.append('caption', caption);
+  const res = await fetch('/api/v1/clinic/photos', {
+    method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': await csrf() }, body: form
+  });
+  return handle<SitePhoto>(res);
 }
 
 export function logoUrl(logoVersion: number | null | undefined, slug?: string): string | null {

@@ -1,16 +1,12 @@
 package com.fisiosaas.clinic;
 
 import com.fisiosaas.identity.CurrentClinic;
-import java.io.ByteArrayInputStream;
+import com.fisiosaas.publicsite.PublicClinics;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -34,10 +30,12 @@ public class LogoController {
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
+    private final PublicClinics publicClinics;
 
-    public LogoController(JdbcTemplate jdbc, CurrentClinic current) {
+    public LogoController(JdbcTemplate jdbc, CurrentClinic current, PublicClinics publicClinics) {
         this.jdbc = jdbc;
         this.current = current;
+        this.publicClinics = publicClinics;
     }
 
     @PostMapping(path = "/api/v1/clinic/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -48,7 +46,7 @@ public class LogoController {
         if (file.getSize() > MAX_BYTES) throw new IllegalArgumentException("A logo precisa ter até 1 MB");
         byte[] data = file.getBytes();
         String type = detectType(data);
-        int[] size = dimensions(data);
+        int[] size = Images.dimensions(data, MIN_SIDE, MAX_SIDE, "logo");
         jdbc.update("""
             INSERT INTO clinic_logos(clinic_id, content_type, data, width, height, updated_at)
             VALUES (?, ?, ?, ?, ?, now())
@@ -74,10 +72,7 @@ public class LogoController {
     /** Logo na vitrine pública: só se a página da clínica estiver ativada. */
     @GetMapping("/api/v1/public/clinics/{slug}/logo")
     public ResponseEntity<byte[]> publicLogo(@PathVariable String slug) {
-        UUID clinicId = jdbc.query("SELECT id FROM clinics WHERE slug = ? AND public_page_enabled",
-                (rs, n) -> rs.getObject("id", UUID.class), slug.toLowerCase(Locale.ROOT))
-            .stream().findFirst().orElseThrow(NoSuchElementException::new);
-        return serve(load(clinicId));
+        return serve(load(publicClinics.requireEnabled(slug)));
     }
 
     private Logo load(UUID clinicId) {
@@ -99,35 +94,8 @@ public class LogoController {
 
     /** Tipo pela assinatura (magic bytes), não pelo nome nem pelo Content-Type enviado. */
     static String detectType(byte[] data) {
-        if (data.length > 8 && (data[0] & 0xFF) == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G') {
-            return "image/png";
-        }
-        if (data.length > 3 && (data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8 && (data[2] & 0xFF) == 0xFF) {
-            return "image/jpeg";
-        }
+        if (Images.isPng(data)) return "image/png";
+        if (Images.isJpeg(data)) return "image/jpeg";
         throw new IllegalArgumentException("Envie a logo em PNG ou JPG");
-    }
-
-    /** Lê só o cabeçalho da imagem (sem decodificar os pixels) para recusar imagens enormes ou corrompidas. */
-    static int[] dimensions(byte[] data) {
-        try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
-            var readers = ImageIO.getImageReaders(input);
-            if (!readers.hasNext()) throw new IllegalArgumentException("Imagem inválida");
-            ImageReader reader = readers.next();
-            try {
-                reader.setInput(input, true, true);
-                int width = reader.getWidth(0);
-                int height = reader.getHeight(0);
-                if (width > MAX_SIDE || height > MAX_SIDE) {
-                    throw new IllegalArgumentException("A logo pode ter no máximo " + MAX_SIDE + " px de lado");
-                }
-                if (width < MIN_SIDE || height < MIN_SIDE) throw new IllegalArgumentException("Logo pequena demais");
-                return new int[] {width, height};
-            } finally {
-                reader.dispose();
-            }
-        } catch (IOException error) {
-            throw new IllegalArgumentException("Imagem inválida");
-        }
     }
 }

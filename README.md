@@ -1,8 +1,8 @@
 # Fisio SaaS (nome provisório)
 
 Sistema para fisioterapeutas autônomos: a própria clínica cadastra serviços e pacotes de sessões
-(com ou sem preço) e ganha uma página pública no estilo dela, onde o paciente escolhe o serviço e a
-quantidade de sessões. Planejamento completo no Trello: **Fisio SaaS | Descoberta e MVP**.
+(com ou sem preço) e ganha um site profissional no estilo dela, com os serviços, fotos, formação, depoimentos e
+perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planejamento completo no Trello: **Fisio SaaS | Descoberta e MVP**.
 
 ## O que já funciona (Sprint 0)
 
@@ -12,9 +12,12 @@ quantidade de sessões. Planejamento completo no Trello: **Fisio SaaS | Descober
 - Painel admin:
   - **Serviços**: nome, descrição, duração, preço opcional, "mostrar preço no site", "permitir agendamento online".
   - **Pacotes**: serviço, nº de sessões, preço opcional (mostra valor por sessão), validade, exibição do preço.
-  - **Clínica e aparência**: dados públicos, **logo** (PNG, JPG, WebP ou SVG, convertida para PNG no navegador) com
-    **cores sugeridas a partir da logo** (até 4 paletas legíveis), cores do tema com prévia e alerta de contraste,
-    endereço da página.
+  - **Site**: **logo** (PNG, JPG, WebP ou SVG, convertida para PNG no navegador) com **cores sugeridas a partir da
+    logo** (até 4 paletas legíveis), cores com prévia e alerta de contraste, estilo e fontes do site, **fotos** (capa
+    e até 6 na galeria, reduzidas e recomprimidas no navegador; o servidor tira EXIF/GPS), sobre, formação,
+    horários, bairros atendidos em casa, mapa, **depoimentos** (só com autorização por escrito do paciente; seção
+    desligada por padrão) e **perguntas frequentes**, com ordem ajustável.
+  - **Clínica**: dados da clínica, endereço da página pública e regra de falta dos pacotes.
 - **Pacientes**: nome, WhatsApp, nascimento, CPF opcional (validado, para recibo) e observações administrativas;
   busca por nome sem acento. Sem dados clínicos até confirmar regras do COFFITO e da LGPD.
 - **Agenda** (dia e semana): sessões avulsas com duração do serviço, status (agendada, confirmada, realizada,
@@ -36,11 +39,13 @@ quantidade de sessões. Planejamento completo no Trello: **Fisio SaaS | Descober
 - Página pública `/c/{slug}`: site da clínica montado a partir da logo, das cores e **dos serviços** que ela oferece.
   Os serviços definem o **estilo** (Sereno: Pilates/estética; Dinâmico: esportiva/ortopedia; Acolhedor:
   infantil/idosos/domiciliar; Clínico: respiratória/neuro/pélvica), com **par de fontes** do Google Fonts, formas,
-  ícones por serviço e frase de destaque. A clínica pode trocar estilo, fontes e frase no painel. Seções: topo com a
-  logo em destaque e diferenciais, serviços, como funciona, sobre, chamada final, contato com mapa e botão flutuante
-  de WhatsApp no celular. Vitrine de serviços; preço só aparece se a clínica permitir
-  ("Valor sob consulta" caso contrário); botão "Agendar pelo WhatsApp" com a escolha já escrita.
-- Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos).
+  ícones por serviço e frase de destaque. Seções (cada uma só aparece se tiver conteúdo): topo com a foto de capa e
+  o nome da profissional, faixa com CREFITO/atendimento em casa/horários, **serviços em lista** (sem preço: preço e
+  pagamento ficam para o agendamento), quem cuida de você + formação, galeria, como agendar, depoimentos, perguntas
+  frequentes, onde atendo com mapa e rodapé. A logo aparece só na barra do topo e no rodapé. Botão "Agendar pelo
+  WhatsApp" com mensagem pronta (por serviço) e botão flutuante no celular.
+- Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do
+  site são apagadas de verdade ao remover (não são histórico e podem mostrar pessoas — LGPD).
 
 ## Rodando localmente
 
@@ -67,7 +72,7 @@ primeiro login.
 
 ```bash
 cd backend && mvn verify      # integração com PostgreSQL real (banco fisio_test) + Flyway
-cd frontend && npm test       # tema, paletas da logo, estilo do site, CPF/telefone, datas, recorrência e mensagens
+cd frontend && npm test       # tema, paletas da logo, estilo e conteúdo do site, fotos, CPF/telefone, datas, recorrência e mensagens
 ```
 
 Cobertura atual: login e sessão, CSRF obrigatório, isolamento entre clínicas (ler, alterar, desativar,
@@ -79,7 +84,9 @@ recorrência (datas geradas, conflitos listados sem criar nada, pular conflitos,
 próximas preservando realizadas, isolamento); pacotes (cópia do catálogo, consumo, reserva sem passar do saldo,
 regra da falta sem reescrever o passado, desfazer, venda depois de agendar, encerrar, pacote de outro paciente
 recusado pela API e pelo banco, isolamento, STAFF); logo (tipo pela assinatura, tamanho e dimensões, SVG/GIF
-recusados, isolamento, vitrine desativada, STAFF).
+recusados, isolamento, vitrine desativada, STAFF); site (capa única, galeria até 6, ordem, foto JPEG com EXIF removido,
+foto apagada de verdade, depoimento só com autorização e seção ligada, perguntas, textos de confiança, isolamento
+de fotos/depoimentos/perguntas, STAFF só consulta).
 
 ## API
 
@@ -98,7 +105,9 @@ recusados, isolamento, vitrine desativada, STAFF).
 | GET · POST | `/api/v1/patients/{id}/packages` (saldo · vender) | logado · OWNER |
 | PUT · DELETE `/{id}` · GET `/low-balance` | `/api/v1/patient-packages` | OWNER · logado |
 | POST · GET · DELETE | `/api/v1/clinic/logo` | OWNER · logado · OWNER |
-| GET | `/api/v1/public/clinics/{slug}` · `/api/v1/public/clinics/{slug}/logo` | público |
+| GET · POST (multipart `file`, `kind`=COVER/GALLERY) · PUT `/{id}` (legenda) · POST `/{id}/move` · DELETE `/{id}` · GET `/{id}/image` | `/api/v1/clinic/photos` | logado · OWNER |
+| GET · POST · PUT `/{id}` · POST `/{id}/move` · DELETE `/{id}` | `/api/v1/clinic/testimonials` · `/api/v1/clinic/faqs` | logado · OWNER |
+| GET | `/api/v1/public/clinics/{slug}` · `/{slug}/logo` · `/{slug}/photos/{id}` | público |
 
 ## Produção (Oracle Cloud Always Free)
 
@@ -120,5 +129,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Próximos passos (ordem sugerida)
 
-1. Pagamentos: maquininhas e taxas (bruto/taxa/líquido) e Pix com QR Code + comprovante.
-2. Agendamento online na vitrine (solicitação → pagamento → confirmação).
+1. Horário de atendimento e horários livres (base do agendamento online).
+2. Agendamento online pelo site, sem Pix (solicitação → aprovação da clínica → sessão na agenda).
+3. Pix com QR Code estático + envio de comprovante.
+4. Site com IA (Gemini): conteúdo e design em JSON validado, rascunho revisado pelo admin, sem dados de pacientes.
+5. Pagamentos: maquininhas e taxas (bruto/taxa/líquido).
