@@ -338,7 +338,7 @@ function ClinicTab({ owner, profile, onSaved }: {
           <h3>Página pública</h3>
           <label>Endereço da página
             <div className="slug"><span className="muted">{window.location.origin}/c/</span>
-              <input required pattern="[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?" value={form.slug}
+              <input required pattern="[a-z0-9]([a-z0-9\-]{1,61}[a-z0-9])?" value={form.slug}
                      onChange={e => set('slug', e.target.value.toLowerCase())} /></div>
           </label>
           <label className="check"><input type="checkbox" checked={form.publicPageEnabled}
