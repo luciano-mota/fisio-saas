@@ -30,7 +30,10 @@ public class PublicCatalogController {
 
     public record PublicClinic(String slug, String displayName, String professionalName, String crefito,
                                String whatsapp, String address, String about, Theme theme,
-                               Long logoVersion, List<PublicService> services) {}
+                               Long logoVersion, Site site, List<PublicService> services) {}
+
+    /** Aparência escolhida pela clínica ("auto" = o site decide pelo tipo de serviço). */
+    public record Site(String style, String fonts, String headline) {}
 
     private final JdbcTemplate jdbc;
 
@@ -49,7 +52,9 @@ public class PublicCatalogController {
                 rs.getString("slug"), rs.getString("display_name"), rs.getString("professional_name"),
                 rs.getString("crefito"), rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
                 new Theme(rs.getString("color_primary"), rs.getString("color_secondary"),
-                    rs.getString("color_accent")), (Long) rs.getObject("logo_version"), List.of())),
+                    rs.getString("color_accent")), (Long) rs.getObject("logo_version"),
+                new Site(rs.getString("site_style"), rs.getString("site_fonts"), rs.getString("site_headline")),
+                List.of())),
             slug.toLowerCase(Locale.ROOT)).stream().findFirst().orElseThrow(NoSuchElementException::new);
 
         List<PublicService> services = jdbc.query("""
@@ -65,7 +70,8 @@ public class PublicCatalogController {
 
         PublicClinic base = clinic.base();
         PublicClinic body = new PublicClinic(base.slug(), base.displayName(), base.professionalName(),
-            base.crefito(), base.whatsapp(), base.address(), base.about(), base.theme(), base.logoVersion(), services);
+            base.crefito(), base.whatsapp(), base.address(), base.about(), base.theme(), base.logoVersion(), base.site(),
+            services);
         return ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(body);
     }
 

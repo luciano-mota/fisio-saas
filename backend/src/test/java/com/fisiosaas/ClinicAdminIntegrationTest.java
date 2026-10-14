@@ -137,6 +137,43 @@ class ClinicAdminIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void aparenciaDoSiteValidaListaFechadaEApareceNaVitrine() throws Exception {
+        mvc.perform(get("/api/v1/public/clinics/fisio-ana"))
+            .andExpect(jsonPath("$.site.style").value("auto"))
+            .andExpect(jsonPath("$.site.fonts").value("auto"))
+            .andExpect(jsonPath("$.site.headline").doesNotExist());
+
+        mvc.perform(put("/api/v1/clinic").with(user(OWNER_A)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                {"displayName":"Fisio Ana","publicPageEnabled":true,"siteStyle":"sereno","siteFonts":"elegante",
+                 "siteHeadline":"  Movimento com leveza  "}"""))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.siteStyle").value("sereno"))
+            .andExpect(jsonPath("$.siteHeadline").value("Movimento com leveza"));
+        mvc.perform(get("/api/v1/public/clinics/fisio-ana"))
+            .andExpect(jsonPath("$.site.style").value("sereno"))
+            .andExpect(jsonPath("$.site.fonts").value("elegante"))
+            .andExpect(jsonPath("$.site.headline").value("Movimento com leveza"));
+
+        // Fora da lista fechada é recusado (nada de fonte ou estilo arbitrário vindo do cliente).
+        for (String body : new String[] {
+            "{\"displayName\":\"Fisio Ana\",\"siteStyle\":\"<script>\"}",
+            "{\"displayName\":\"Fisio Ana\",\"siteFonts\":\"Comic Sans\"}"}) {
+            mvc.perform(put("/api/v1/clinic").with(user(OWNER_A)).with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+        }
+        // Salvar sem os campos mantém; frase vazia volta para a automática.
+        mvc.perform(put("/api/v1/clinic").with(user(OWNER_A)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":\"Fisio Ana\",\"publicPageEnabled\":true,\"siteHeadline\":\"\"}"))
+            .andExpect(jsonPath("$.siteStyle").value("sereno"))
+            .andExpect(jsonPath("$.siteHeadline").doesNotExist());
+        // A outra clínica não foi afetada.
+        mvc.perform(get("/api/v1/public/clinics/fisio-bia")).andExpect(jsonPath("$.site.style").value("auto"));
+    }
+
+    @Test
     void precoNegativoEhRecusado() throws Exception {
         mvc.perform(post("/api/v1/services").with(user(OWNER_A)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Pilates\",\"price\":-1}"))

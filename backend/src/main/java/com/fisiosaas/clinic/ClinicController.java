@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/clinic")
 public class ClinicController {
     static final String HEX = "^#[0-9A-Fa-f]{6}$";
+    static final String STYLES = "^(auto|sereno|dinamico|acolhedor|clinico)$";
+    static final String FONTS = "^(auto|elegante|classica|moderna|geometrica|suave|profissional)$";
 
     public record ClinicProfile(
         UUID id,
@@ -38,7 +40,11 @@ public class ClinicController {
         // Regra em aberto, por clínica: falta sem aviso consome sessão do pacote? (padrão: não)
         Boolean noShowConsumesSession,
         // Muda quando a logo é trocada (só leitura): o painel usa em /api/v1/clinic/logo?v=... para não pegar cache velho.
-        Long logoVersion) {}
+        Long logoVersion,
+        // Site público: estilo visual, par de fontes e frase de destaque (nulos = mantém o que está salvo).
+        @Pattern(regexp = STYLES, message = "estilo inválido") String siteStyle,
+        @Pattern(regexp = FONTS, message = "fontes inválidas") String siteFonts,
+        @Size(max = 140) String siteHeadline) {}
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
@@ -60,7 +66,8 @@ public class ClinicController {
         jdbc.update("""
             UPDATE clinics SET slug = ?, display_name = ?, professional_name = ?, crefito = ?, document = ?,
                    whatsapp = ?, address = ?, about = ?, color_primary = ?, color_secondary = ?,
-                   color_accent = ?, public_page_enabled = ?, no_show_consumes_session = ?, updated_at = now()
+                   color_accent = ?, public_page_enabled = ?, no_show_consumes_session = ?,
+                   site_style = ?, site_fonts = ?, site_headline = ?, updated_at = now()
              WHERE id = ?""",
             body.slug() == null ? old.slug() : body.slug(),
             body.displayName().trim(), blankToNull(body.professionalName()), blankToNull(body.crefito()),
@@ -70,7 +77,10 @@ public class ClinicController {
             orDefault(body.colorSecondary(), old.colorSecondary()),
             orDefault(body.colorAccent(), old.colorAccent()),
             body.publicPageEnabled(),
-            body.noShowConsumesSession() == null ? old.noShowConsumesSession() : body.noShowConsumesSession(), clinicId);
+            body.noShowConsumesSession() == null ? old.noShowConsumesSession() : body.noShowConsumesSession(),
+            body.siteStyle() == null ? old.siteStyle() : body.siteStyle(),
+            body.siteFonts() == null ? old.siteFonts() : body.siteFonts(),
+            body.siteHeadline() == null ? old.siteHeadline() : blankToNull(body.siteHeadline()), clinicId);
         return load(clinicId);
     }
 
@@ -84,7 +94,8 @@ public class ClinicController {
             rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
             rs.getString("color_primary"), rs.getString("color_secondary"), rs.getString("color_accent"),
             rs.getBoolean("public_page_enabled"), rs.getBoolean("no_show_consumes_session"),
-            (Long) rs.getObject("logo_version")), clinicId);
+            (Long) rs.getObject("logo_version"), rs.getString("site_style"), rs.getString("site_fonts"),
+            rs.getString("site_headline")), clinicId);
     }
 
     static String blankToNull(String value) {

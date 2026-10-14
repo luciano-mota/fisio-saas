@@ -33,9 +33,12 @@ quantidade de sessões. Planejamento completo no Trello: **Fisio SaaS | Descober
 - **Confirmação pelo WhatsApp** (link `wa.me`, custo zero): botão "Pedir confirmação" nas sessões agendadas com a
   mensagem pronta ("Olá, Maria! Confirmando sua sessão de Pilates amanhã (qui, 15/10) às 8h. Responda SIM…") e
   **Lembretes de amanhã**, que abre um paciente por vez.
-- Página pública `/c/{slug}`: site da clínica montado a partir da logo e das cores dela: logo em destaque no topo
-  (cartão branco, funciona com qualquer fundo), barra fixa com a logo e o WhatsApp sempre à mão, rodapé com contato,
-  ícone da aba = logo; sem logo, mostra as iniciais. Vitrine de serviços; preço só aparece se a clínica permitir
+- Página pública `/c/{slug}`: site da clínica montado a partir da logo, das cores e **dos serviços** que ela oferece.
+  Os serviços definem o **estilo** (Sereno: Pilates/estética; Dinâmico: esportiva/ortopedia; Acolhedor:
+  infantil/idosos/domiciliar; Clínico: respiratória/neuro/pélvica), com **par de fontes** do Google Fonts, formas,
+  ícones por serviço e frase de destaque. A clínica pode trocar estilo, fontes e frase no painel. Seções: topo com a
+  logo em destaque e diferenciais, serviços, como funciona, sobre, chamada final, contato com mapa e botão flutuante
+  de WhatsApp no celular. Vitrine de serviços; preço só aparece se a clínica permitir
   ("Valor sob consulta" caso contrário); botão "Agendar pelo WhatsApp" com a escolha já escrita.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos).
 
@@ -64,7 +67,7 @@ primeiro login.
 
 ```bash
 cd backend && mvn verify      # integração com PostgreSQL real (banco fisio_test) + Flyway
-cd frontend && npm test       # tema, paletas da logo, CPF/telefone, datas, recorrência e mensagens
+cd frontend && npm test       # tema, paletas da logo, estilo do site, CPF/telefone, datas, recorrência e mensagens
 ```
 
 Cobertura atual: login e sessão, CSRF obrigatório, isolamento entre clínicas (ler, alterar, desativar,

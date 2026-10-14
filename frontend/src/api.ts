@@ -7,6 +7,7 @@ export type ClinicProfile = {
   document: string | null; whatsapp: string | null; address: string | null; about: string | null;
   colorPrimary: string; colorSecondary: string; colorAccent: string; publicPageEnabled: boolean;
   noShowConsumesSession: boolean; logoVersion: number | null;
+  siteStyle: string; siteFonts: string; siteHeadline: string | null;
 };
 
 export type Service = {
@@ -50,6 +51,7 @@ export type PublicService = {
 export type PublicClinic = {
   slug: string; displayName: string; professionalName: string | null; crefito: string | null;
   whatsapp: string | null; address: string | null; about: string | null; theme: Theme; logoVersion: number | null;
+  site: { style: string; fonts: string; headline: string | null };
   services: PublicService[];
 };
 

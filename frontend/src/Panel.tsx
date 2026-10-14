@@ -3,6 +3,7 @@ import { api, logoUrl, money, signOut, type ClinicProfile, type Me, type Service
 import { contrastRatio, readableTextOn, themeVariables } from './color';
 import { AgendaTab } from './Agenda';
 import { LogoSection } from './LogoSection';
+import { SiteSection } from './SiteSection';
 import { PatientsTab } from './Patients';
 import { navigate, usePath } from './router';
 
@@ -350,6 +351,8 @@ function ClinicTab({ owner, profile, onSaved, onLogoChange }: {
             <button type="button" className="preview-cta">Agendar</button>
           </div>
           {accentContrast < 4.5 && <p className="notice small">Essa cor de destaque tem pouco contraste com o texto.</p>}
+
+          <SiteSection form={form} set={patch => setForm({ ...form, ...patch })} />
 
           <h3>Página pública</h3>
           <label>Endereço da página
