@@ -28,7 +28,7 @@ export type Appointment = {
   id: string; kind: 'SESSION' | 'BLOCK'; patientId: string | null; patientName: string | null;
   patientWhatsapp: string | null; serviceId: string | null; serviceName: string | null;
   startsAt: string; endsAt: string; status: AppointmentStatus; notes: string | null;
-  originalStartsAt: string | null; rescheduleCount: number;
+  originalStartsAt: string | null; rescheduleCount: number; seriesId: string | null;
 };
 
 export type PublicPackage = { id: string; name: string; sessionCount: number; price: number | null; validityDays: number | null };
@@ -47,15 +47,29 @@ async function csrf(): Promise<string> {
   return ((await res.json()) as { token: string }).token;
 }
 
+/** Erro da API com o status HTTP e, no 409 de série recorrente, a lista de datas em conflito. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly conflicts: string[];
+
+  constructor(message: string, status: number, conflicts: string[] = []) {
+    super(message);
+    this.status = status;
+    this.conflicts = conflicts;
+  }
+}
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = 'Falha na operação (' + res.status + ')';
+    let conflicts: string[] = [];
     try {
-      const body = JSON.parse(await res.text()) as { error?: string };
+      const body = JSON.parse(await res.text()) as { error?: string; conflicts?: string[] };
       if (body.error) message = body.error;
+      if (body.conflicts) conflicts = body.conflicts;
     } catch { /* resposta sem JSON */ }
     if (res.status === 401) window.dispatchEvent(new Event('session-expired'));
-    throw new Error(message);
+    throw new ApiError(message, res.status, conflicts);
   }
   return (res.status === 204 ? null : await res.json()) as T;
 }

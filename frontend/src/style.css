@@ -135,3 +135,11 @@ a.button {
 .status-done { background: #dcfce7; color: #14532d; }
 .status-no_show { background: #fee2e2; color: #7f1d1d; }
 .status-canceled { background: #e5e7eb; color: #374151; }
+.repeat { gap: 10px; }
+.weekdays { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 6px 10px; border-radius: 99px; }
+.chip.on { background: var(--color-primary); color: var(--color-on-primary); border-color: transparent; }
+.conflicts { margin: 0 0 8px; padding-left: 18px; }
+.repeat-limit { display: flex; align-items: center; gap: 8px; }
+.repeat-limit input { width: 80px; }
+.repeat-limit select { width: auto; flex: 1; }
