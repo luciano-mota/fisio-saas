@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { api, ApiError, type Appointment, type AppointmentStatus, type Patient, type Service } from './api';
+import { api, ApiError, whatsappLink, type Appointment, type AppointmentStatus, type Patient, type PatientPackage,
+  type Service } from './api';
 import { addDays, dateOf, dayLabel, minutesBetween, nowLocal, timeOf, today, weekStart } from './dates';
+import { confirmationMessage, renewalMessage, sessionsLabel } from './messages';
 import { isoWeekday, MAX_OCCURRENCES, seriesDates, WEEKDAYS } from './recurrence';
+import { navigate } from './router';
 
 export const STATUS_LABEL: Record<AppointmentStatus, string> = {
   SCHEDULED: 'Agendada', CONFIRMED: 'Confirmada', DONE: 'Realizada', NO_SHOW: 'Falta', CANCELED: 'Cancelada'
@@ -26,6 +29,8 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   const [form, setForm] = useState<Form | null>(null);
   const [error, setError] = useState('');
   const [conflicts, setConflicts] = useState<string[]>([]);
+  const [lowBalance, setLowBalance] = useState<PatientPackage[]>([]);
+  const [reminders, setReminders] = useState(false);
 
   const from = view === 'dia' ? date : weekStart(date);
   const to = view === 'dia' ? date : addDays(from, 6);
@@ -33,6 +38,7 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   const load = useCallback(async () => {
     const params = new URLSearchParams({ from, to, includeCanceled: String(showCanceled) });
     setItems(await api<Appointment[]>('/api/v1/appointments?' + params));
+    setLowBalance(await api<PatientPackage[]>('/api/v1/patient-packages/low-balance'));
   }, [from, to, showCanceled]);
 
   useEffect(() => { load().catch(e => setError((e as Error).message)); }, [load]);
@@ -135,6 +141,27 @@ export function AgendaTab({ owner }: { owner: boolean }) {
         {date !== today() && <button onClick={() => setDate(today())}>Hoje</button>}
       </div>
 
+      {lowBalance.length > 0 && (
+        <details className="notice small low-balance">
+          <summary>{lowBalance.length === 1 ? '1 pacote acabando' : `${lowBalance.length} pacotes acabando`} — hora de oferecer renovação</summary>
+          <ul>
+            {lowBalance.map(pkg => (
+              <li key={pkg.id}>
+                <button className="link" onClick={() => navigate('/painel/pacientes/' + pkg.patientId)}>{pkg.patientName}</button>
+                {' '}· {pkg.serviceName} · {pkg.remaining <= 0 ? 'acabou' : `${sessionsLabel(pkg.remaining)} restante${pkg.remaining === 1 ? '' : 's'}`}
+                {pkg.patientWhatsapp && <> · <a href={whatsappLink(pkg.patientWhatsapp, renewalMessage(pkg.patientName, pkg))}
+                                                target="_blank" rel="noreferrer">WhatsApp</a></>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {reminders && <Reminders onClose={() => setReminders(false)} />}
+
+      {!form && !owner && !reminders && (
+        <div className="actions"><button onClick={() => setReminders(true)}>Lembretes de amanhã</button></div>
+      )}
       {owner && !form && (
         <div className="actions">
           <button className="primary" disabled={services.length === 0}
@@ -142,6 +169,7 @@ export function AgendaTab({ owner }: { owner: boolean }) {
                     time: '08:00', duration: '', notes: '', ...noRepeat(date) })}>+ Sessão</button>
           <button onClick={() => setForm({ mode: 'bloqueio', date, time: '12:00', endTime: '14:00', notes: '', ...noRepeat(date) })}>
             Bloquear horário</button>
+          {!reminders && <button onClick={() => setReminders(true)}>Lembretes de amanhã</button>}
         </div>
       )}
       {owner && services.length === 0 && <p className="notice small">Cadastre um serviço para poder agendar sessões.</p>}
@@ -205,19 +233,34 @@ function AgendaItem({ item, owner, started, onStatus, onCancel, onCancelUpcoming
           {item.serviceName}
           {item.originalStartsAt && ` · remarcada (era ${dayLabel(item.originalStartsAt)} ${timeOf(item.originalStartsAt)})`}
         </div>
+        {item.status !== 'CANCELED' && (
+          <div className="small">
+            {item.patientPackageId
+              ? <>Pacote {item.packageName} · <span className={item.packageRemaining !== null && item.packageRemaining <= 2 ? 'warn' : ''}>
+                  {item.packageRemaining} {item.packageRemaining === 1 ? 'restante' : 'restantes'}</span></>
+              : <span className="muted">Sessão avulsa</span>}
+          </div>
+        )}
         {item.notes && <div className="small">{item.notes}</div>}
       </div>
-      {owner && (
+      {(owner || (item.status === 'SCHEDULED' && !started && item.patientWhatsapp)) && (
         <div className="actions">
-          {item.status === 'SCHEDULED' && <button onClick={() => onStatus('CONFIRMED')}>Confirmar</button>}
-          {open && started && <button onClick={() => onStatus('DONE')}>Realizada</button>}
-          {open && started && <button onClick={() => onStatus('NO_SHOW')}>Falta</button>}
-          {open && <button onClick={onReschedule}>Remarcar</button>}
-          {open && <button className="danger" onClick={onCancel}>Cancelar</button>}
-          {open && item.seriesId && <button className="danger" onClick={onCancelUpcoming}>Cancelar próximas</button>}
-          {(item.status === 'DONE' || item.status === 'NO_SHOW') &&
-            <button onClick={() => onStatus('CONFIRMED')}>Desfazer</button>}
-          {item.status === 'CANCELED' && <button onClick={() => onStatus('SCHEDULED')}>Reativar</button>}
+          {item.status === 'SCHEDULED' && !started && item.patientWhatsapp && (
+            <a className="button wa" target="_blank" rel="noreferrer"
+               href={whatsappLink(item.patientWhatsapp, confirmationMessage(item.patientName ?? '', item.serviceName ?? '', item.startsAt, today()))}>
+              Pedir confirmação</a>
+          )}
+          {owner && <>
+            {item.status === 'SCHEDULED' && <button onClick={() => onStatus('CONFIRMED')}>Confirmar</button>}
+            {open && started && <button onClick={() => onStatus('DONE')}>Realizada</button>}
+            {open && started && <button onClick={() => onStatus('NO_SHOW')}>Falta</button>}
+            {open && <button onClick={onReschedule}>Remarcar</button>}
+            {open && <button className="danger" onClick={onCancel}>Cancelar</button>}
+            {open && item.seriesId && <button className="danger" onClick={onCancelUpcoming}>Cancelar próximas</button>}
+            {(item.status === 'DONE' || item.status === 'NO_SHOW') &&
+              <button onClick={() => onStatus('CONFIRMED')}>Desfazer</button>}
+            {item.status === 'CANCELED' && <button onClick={() => onStatus('SCHEDULED')}>Reativar</button>}
+          </>}
         </div>
       )}
     </li>
@@ -340,5 +383,55 @@ function RepeatFields({ form, set }: { form: Form & Repeat; set: (patch: Partial
         </>
       )}
     </fieldset>
+  );
+}
+
+/** Lembretes de amanhã: abre o WhatsApp de cada paciente, um por um, com a mensagem pronta. */
+function Reminders({ onClose }: { onClose: () => void }) {
+  const tomorrow = addDays(today(), 1);
+  const [items, setItems] = useState<Appointment[] | null>(null);
+  const [sent, setSent] = useState<string[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api<Appointment[]>(`/api/v1/appointments?from=${tomorrow}&to=${tomorrow}`)
+      .then(list => setItems(list.filter(a => a.kind === 'SESSION' && (a.status === 'SCHEDULED' || a.status === 'CONFIRMED'))))
+      .catch(e => setError((e as Error).message));
+  }, [tomorrow]);
+
+  const link = (a: Appointment) =>
+    whatsappLink(a.patientWhatsapp ?? '', confirmationMessage(a.patientName ?? '', a.serviceName ?? '', a.startsAt, today()));
+  const withPhone = (items ?? []).filter(a => a.patientWhatsapp);
+  const next = withPhone.find(a => !sent.includes(a.id));
+  const markSent = (id: string) => setSent(list => (list.includes(id) ? list : [...list, id]));
+
+  return (
+    <div className="card form reminders">
+      <h3>Lembretes de amanhã · {dayLabel(tomorrow)}</h3>
+      {error && <p className="error" role="alert">{error}</p>}
+      {items === null && !error && <p className="muted small">Carregando…</p>}
+      {items?.length === 0 && <p className="muted small">Nenhuma sessão marcada para amanhã.</p>}
+      {next && (
+        <a className="button primary-link" href={link(next)} target="_blank" rel="noreferrer" onClick={() => markSent(next.id)}>
+          Enviar próximo ({sent.filter(id => withPhone.some(a => a.id === id)).length + 1} de {withPhone.length}): {next.patientName}
+        </a>
+      )}
+      {items && items.length > 0 && !next && withPhone.length > 0 && <p className="success small">Todos os lembretes foram abertos.</p>}
+      <ul className="list">
+        {(items ?? []).map(a => (
+          <li key={a.id} className="item">
+            <div><strong>{timeOf(a.startsAt)}</strong> · {a.patientName}
+              <span className={`status status-${a.status.toLowerCase()}`}>{STATUS_LABEL[a.status]}</span>
+              <div className="muted small">{a.serviceName}</div></div>
+            {a.patientWhatsapp
+              ? (sent.includes(a.id)
+                ? <span className="success small">Aberto ✓</span>
+                : <a className="button wa" href={link(a)} target="_blank" rel="noreferrer" onClick={() => markSent(a.id)}>Enviar</a>)
+              : <span className="muted small">Sem WhatsApp</span>}
+          </li>
+        ))}
+      </ul>
+      <div className="actions"><button type="button" onClick={onClose}>Fechar</button></div>
+    </div>
   );
 }

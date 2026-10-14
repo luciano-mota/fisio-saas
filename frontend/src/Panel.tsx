@@ -24,7 +24,7 @@ function applyTheme(profile: ClinicProfile | null) {
 
 export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const path = usePath();
-  const tab = (TABS.find(t => path === '/painel/' + t.id)?.id ?? TABS[0].id) as Tab;
+  const tab = (TABS.find(t => path === '/painel/' + t.id || path.startsWith('/painel/' + t.id + '/'))?.id ?? TABS[0].id) as Tab;
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const owner = me.role === 'OWNER';
 
@@ -54,7 +54,7 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
       <main className="content">
         {!owner && <p className="notice">Você está como colaborador: pode consultar, mas só a responsável altera.</p>}
         {tab === 'agenda' && <AgendaTab owner={owner} />}
-        {tab === 'pacientes' && <PatientsTab owner={owner} />}
+        {tab === 'pacientes' && <PatientsTab owner={owner} patientId={path.split('/')[3]} />}
         {tab === 'servicos' && <ServicesTab owner={owner} />}
         {tab === 'pacotes' && <PackagesTab owner={owner} />}
         {tab === 'clinica' && profile &&
@@ -350,6 +350,12 @@ function ClinicTab({ owner, profile, onSaved }: {
           <label className="check"><input type="checkbox" checked={form.publicPageEnabled}
                                           onChange={e => set('publicPageEnabled', e.target.checked)} />
             Página pública ativada</label>
+
+          <h3>Pacotes</h3>
+          <label className="check"><input type="checkbox" checked={form.noShowConsumesSession}
+                                          onChange={e => set('noShowConsumesSession', e.target.checked)} />
+            Falta sem aviso consome sessão do pacote</label>
+          <p className="muted small">Vale para as faltas marcadas daqui em diante; faltas já registradas não mudam.</p>
           {profile.publicPageEnabled && <p className="small"><a href={publicUrl} target="_blank" rel="noreferrer">Abrir minha página ↗</a></p>}
         </fieldset>
         {error && <p className="error" role="alert">{error}</p>}

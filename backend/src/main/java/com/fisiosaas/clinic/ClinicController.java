@@ -34,7 +34,9 @@ public class ClinicController {
         @Pattern(regexp = HEX, message = "cor inválida") String colorPrimary,
         @Pattern(regexp = HEX, message = "cor inválida") String colorSecondary,
         @Pattern(regexp = HEX, message = "cor inválida") String colorAccent,
-        boolean publicPageEnabled) {}
+        boolean publicPageEnabled,
+        // Regra em aberto, por clínica: falta sem aviso consome sessão do pacote? (padrão: não)
+        Boolean noShowConsumesSession) {}
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
@@ -56,7 +58,7 @@ public class ClinicController {
         jdbc.update("""
             UPDATE clinics SET slug = ?, display_name = ?, professional_name = ?, crefito = ?, document = ?,
                    whatsapp = ?, address = ?, about = ?, color_primary = ?, color_secondary = ?,
-                   color_accent = ?, public_page_enabled = ?, updated_at = now()
+                   color_accent = ?, public_page_enabled = ?, no_show_consumes_session = ?, updated_at = now()
              WHERE id = ?""",
             body.slug() == null ? old.slug() : body.slug(),
             body.displayName().trim(), blankToNull(body.professionalName()), blankToNull(body.crefito()),
@@ -65,7 +67,8 @@ public class ClinicController {
             orDefault(body.colorPrimary(), old.colorPrimary()),
             orDefault(body.colorSecondary(), old.colorSecondary()),
             orDefault(body.colorAccent(), old.colorAccent()),
-            body.publicPageEnabled(), clinicId);
+            body.publicPageEnabled(),
+            body.noShowConsumesSession() == null ? old.noShowConsumesSession() : body.noShowConsumesSession(), clinicId);
         return load(clinicId);
     }
 
@@ -75,7 +78,7 @@ public class ClinicController {
             rs.getString("professional_name"), rs.getString("crefito"), rs.getString("document"),
             rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
             rs.getString("color_primary"), rs.getString("color_secondary"), rs.getString("color_accent"),
-            rs.getBoolean("public_page_enabled")), clinicId);
+            rs.getBoolean("public_page_enabled"), rs.getBoolean("no_show_consumes_session")), clinicId);
     }
 
     static String blankToNull(String value) {

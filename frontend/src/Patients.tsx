@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, whatsappLink, type Patient } from './api';
 import { ageOn, formatCpf, formatPhone, isValidCpf } from './format';
+import { PatientDetail } from './PatientDetail';
+import { navigate } from './router';
 
 type PatientForm = {
   id?: string; fullName: string; cpf: string; whatsapp: string; birthDate: string; adminNotes: string;
@@ -15,7 +17,7 @@ function toForm(p: Patient): PatientForm {
 }
 
 /** Cadastro de pacientes: só dados administrativos (sem dados clínicos nesta fase). */
-export function PatientsTab({ owner }: { owner: boolean }) {
+export function PatientsTab({ owner, patientId }: { owner: boolean; patientId?: string }) {
   const [items, setItems] = useState<Patient[]>([]);
   const [query, setQuery] = useState('');
   const [showInactive, setShowInactive] = useState(false);
@@ -60,6 +62,8 @@ export function PatientsTab({ owner }: { owner: boolean }) {
     await api(`/api/v1/patients/${p.id}`, 'PUT', { ...p, active: true });
     await load();
   }
+
+  if (patientId) return <PatientDetail patientId={patientId} owner={owner} onBack={() => navigate('/painel/pacientes')} />;
 
   return (
     <section>
@@ -107,7 +111,8 @@ export function PatientsTab({ owner }: { owner: boolean }) {
         {items.map(p => (
           <li key={p.id} className={p.active ? 'item' : 'item inactive'}>
             <div>
-              <strong>{p.fullName}</strong>{!p.active && <span className="tag">desativado</span>}
+              <button className="link name" onClick={() => navigate('/painel/pacientes/' + p.id)}>{p.fullName}</button>
+              {!p.active && <span className="tag">desativado</span>}
               <div className="muted small">
                 {[p.whatsapp && formatPhone(p.whatsapp), p.birthDate && `${ageOn(p.birthDate)} anos`,
                   p.cpf && `CPF ${formatCpf(p.cpf)}`].filter(Boolean).join(' · ') || 'Sem contato cadastrado'}

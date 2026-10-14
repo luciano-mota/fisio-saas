@@ -6,6 +6,7 @@ export type ClinicProfile = {
   id: string; slug: string; displayName: string; professionalName: string | null; crefito: string | null;
   document: string | null; whatsapp: string | null; address: string | null; about: string | null;
   colorPrimary: string; colorSecondary: string; colorAccent: string; publicPageEnabled: boolean;
+  noShowConsumesSession: boolean;
 };
 
 export type Service = {
@@ -29,6 +30,16 @@ export type Appointment = {
   patientWhatsapp: string | null; serviceId: string | null; serviceName: string | null;
   startsAt: string; endsAt: string; status: AppointmentStatus; notes: string | null;
   originalStartsAt: string | null; rescheduleCount: number; seriesId: string | null;
+  patientPackageId: string | null; packageName: string | null; packageRemaining: number | null;
+  countsAgainstPackage: boolean;
+};
+
+/** Pacote vendido a um paciente, com saldo. */
+export type PatientPackage = {
+  id: string; patientId: string; patientName: string; patientWhatsapp: string | null; packageId: string;
+  serviceId: string; serviceName: string; name: string; sessionCount: number; price: number | null;
+  purchasedOn: string; expiresOn: string | null; notes: string | null; active: boolean;
+  used: number; scheduled: number; remaining: number; expired: boolean; lowBalance: boolean;
 };
 
 export type PublicPackage = { id: string; name: string; sessionCount: number; price: number | null; validityDays: number | null };

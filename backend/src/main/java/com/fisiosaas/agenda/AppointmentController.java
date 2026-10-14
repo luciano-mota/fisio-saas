@@ -4,6 +4,7 @@ import com.fisiosaas.agenda.Agenda.AppointmentView;
 import com.fisiosaas.agenda.Agenda.Slot;
 import com.fisiosaas.agenda.Agenda.Status;
 import com.fisiosaas.identity.CurrentClinic;
+import com.fisiosaas.patientpackage.PackageLedger;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -51,14 +52,19 @@ public class AppointmentController {
 
     public record StatusRequest(@NotNull Status status) {}
 
+    /** Pacote vendido que a sessão usa; null deixa a sessão avulsa. */
+    public record PackageRequest(UUID patientPackageId) {}
+
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
     private final Agenda agenda;
+    private final PackageLedger ledger;
 
-    public AppointmentController(JdbcTemplate jdbc, CurrentClinic current, Agenda agenda) {
+    public AppointmentController(JdbcTemplate jdbc, CurrentClinic current, Agenda agenda, PackageLedger ledger) {
         this.jdbc = jdbc;
         this.current = current;
         this.agenda = agenda;
+        this.ledger = ledger;
     }
 
     /** Sessões e bloqueios entre as datas (inclusive), em ordem de horário. */
@@ -95,6 +101,7 @@ public class AppointmentController {
             VALUES (?, ?, 'SESSION', ?, ?, ?, ?, ?)""",
             id, clinicId, body.patientId(), body.serviceId(), agenda.toInstant(slot.startsAt(), zone),
             agenda.toInstant(slot.endsAt(), zone), blankToNull(body.notes())));
+        ledger.linkNew(clinicId, id);
         return agenda.find(clinicId, id);
     }
 
@@ -171,17 +178,31 @@ public class AppointmentController {
         agenda.write(() -> jdbc.update(
             "UPDATE appointments SET status = ?, updated_at = now() WHERE id = ? AND clinic_id = ?",
             target.name(), id, clinicId));
+        ledger.applyStatus(clinicId, id);
+        return agenda.find(clinicId, id);
+    }
+
+    /** Troca o pacote usado pela sessão (ou deixa avulsa com patientPackageId null). */
+    @PutMapping("/appointments/{id}/package")
+    @Transactional
+    public AppointmentView changePackage(Authentication auth, @PathVariable UUID id, @RequestBody PackageRequest body) {
+        UUID clinicId = current.requireOwner(auth).clinicId();
+        AppointmentView old = agenda.find(clinicId, id);
+        if (!"SESSION".equals(old.kind())) throw new IllegalArgumentException("Bloqueio de horário não usa pacote");
+        ledger.assign(clinicId, id, body.patientPackageId());
         return agenda.find(clinicId, id);
     }
 
     /** Não apaga: cancela a sessão ou remove o bloqueio (fica no histórico como cancelado). */
     @DeleteMapping("/appointments/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     public void cancel(Authentication auth, @PathVariable UUID id) {
         UUID clinicId = current.requireOwner(auth).clinicId();
-        agenda.find(clinicId, id);
+        AppointmentView old = agenda.find(clinicId, id);
         jdbc.update("UPDATE appointments SET status = 'CANCELED', updated_at = now() WHERE id = ? AND clinic_id = ?",
             id, clinicId);
+        if ("SESSION".equals(old.kind())) ledger.applyStatus(clinicId, id);
     }
 
     private static String blankToNull(String value) {
