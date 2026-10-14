@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { signIn } from './api';
+import { Icon } from './ui';
 
 export function Login({ onLogged }: { onLogged: () => void }) {
   const [email, setEmail] = useState('');
@@ -24,8 +25,9 @@ export function Login({ onLogged }: { onLogged: () => void }) {
   return (
     <main className="login">
       <form className="card login-card" onSubmit={submit}>
+        <span className="brand-mark" aria-hidden="true"><Icon name="calendar" size={22} /></span>
         <h1>Entrar no painel</h1>
-        <p className="muted">Agenda, pacotes e pagamentos da sua clínica.</p>
+        <p className="muted">Agenda, pacientes, pacotes e o site da sua clínica, num lugar só.</p>
         <label>E-mail
           <input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} />
         </label>

@@ -40,3 +40,10 @@ export function ageOn(birthDate: string, today: Date = new Date()): number {
   if (month < m || (month === m && today.getDate() < d)) age--;
   return age;
 }
+
+/** Iniciais para o avatar ("Maria Souza Lima" → "ML"). */
+export function avatarInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}

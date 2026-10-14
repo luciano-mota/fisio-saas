@@ -3,8 +3,10 @@ import { api, ApiError, whatsappLink, type Appointment, type AppointmentStatus, 
   type Service } from './api';
 import { addDays, dateOf, dayLabel, minutesBetween, nowLocal, timeOf, today, weekStart } from './dates';
 import { confirmationMessage, renewalMessage, sessionsLabel } from './messages';
+import { dayChip, daySummary, longDayLabel, primaryAction, summaryText } from './panel';
 import { isoWeekday, MAX_OCCURRENCES, seriesDates, WEEKDAYS } from './recurrence';
 import { navigate } from './router';
+import { EmptyState, Icon, Menu, PageHeader, Sheet, useUi, type MenuEntry } from './ui';
 
 export const STATUS_LABEL: Record<AppointmentStatus, string> = {
   SCHEDULED: 'Agendada', CONFIRMED: 'Confirmada', DONE: 'Realizada', NO_SHOW: 'Falta', CANCELED: 'Cancelada'
@@ -18,11 +20,12 @@ type Form =
   | ({ mode: 'bloqueio'; date: string; time: string; endTime: string; notes: string } & Repeat)
   | { mode: 'remarcar'; item: Appointment; date: string; time: string; duration: string; notes: string };
 
-/** Agenda do dia ou da semana, pensada para o celular. */
-export function AgendaTab({ owner }: { owner: boolean }) {
+/** Agenda do dia ou da semana, pensada para o celular. {@code action}: "nova" abre o formulário, "lembretes" os lembretes. */
+export function AgendaTab({ owner, action }: { owner: boolean; action?: string }) {
+  const { toast } = useUi();
   const [view, setView] = useState<View>('dia');
   const [date, setDate] = useState(today());
-  const [items, setItems] = useState<Appointment[]>([]);
+  const [items, setItems] = useState<Appointment[] | null>(null);
   const [showCanceled, setShowCanceled] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -32,8 +35,9 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   const [lowBalance, setLowBalance] = useState<PatientPackage[]>([]);
   const [reminders, setReminders] = useState(false);
 
-  const from = view === 'dia' ? date : weekStart(date);
-  const to = view === 'dia' ? date : addDays(from, 6);
+  // Sempre carrega a semana inteira: a faixa de dias mostra quantas sessões há em cada um.
+  const from = weekStart(date);
+  const to = addDays(from, 6);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ from, to, includeCanceled: String(showCanceled) });
@@ -48,43 +52,37 @@ export function AgendaTab({ owner }: { owner: boolean }) {
     api<Service[]>('/api/v1/services').then(list => setServices(list.filter(s => s.active))).catch(() => undefined);
   }, [owner]);
 
-  async function run(action: () => Promise<unknown>) {
-    setError('');
-    setConflicts([]);
-    try {
-      await action();
-      await load();
-      return true;
-    } catch (e) {
-      setError((e as Error).message);
-      if (e instanceof ApiError) setConflicts(e.conflicts);
-      return false;
-    }
-  }
+  const noRepeat = (day: string): Repeat => ({ repeat: false, weekdays: [isoWeekday(day)], limitMode: 'semanas', limit: '4' });
+  const newSession = useCallback(() => {
+    setError(''); setConflicts([]);
+    setForm({ mode: 'sessao', patientId: '', serviceId: '', date, time: '08:00', duration: '', notes: '', ...noRepeat(date) });
+  }, [date]);
+  const newBlock = () => {
+    setError(''); setConflicts([]);
+    setForm({ mode: 'bloqueio', date, time: '12:00', endTime: '14:00', notes: '', ...noRepeat(date) });
+  };
 
-  const changeStatus = (item: Appointment, status: AppointmentStatus) =>
-    run(() => api(`/api/v1/appointments/${item.id}/status`, 'POST', { status }));
-
-  async function cancelUpcoming(item: Appointment) {
-    const what = item.kind === 'BLOCK' ? 'os próximos bloqueios desta série' : `as próximas sessões de ${item.patientName} desta série`;
-    if (confirm(`Cancelar ${what}, a partir de ${dayLabel(item.startsAt)}? O que já foi realizado não muda.`)) {
-      await run(() => api(`/api/v1/appointments/series/${item.seriesId}?from=${dateOf(item.startsAt)}`, 'DELETE'));
-    }
-  }
-
-  async function cancel(item: Appointment) {
-    const what = item.kind === 'BLOCK' ? 'Remover este bloqueio de horário?' : `Cancelar a sessão de ${item.patientName}?`;
-    if (confirm(what)) await run(() => api(`/api/v1/appointments/${item.id}`, 'DELETE'));
-  }
+  // Atalhos vindos da tela Hoje (/painel/agenda/nova e /painel/agenda/lembretes).
+  useEffect(() => {
+    if (action === 'nova' && owner) newSession();
+    if (action === 'lembretes') setReminders(true);
+    if (action) navigate('/painel/agenda');
+  }, [action, owner, newSession]);
+  // Serviço padrão quando a lista chega depois de abrir o formulário.
+  useEffect(() => {
+    if (form?.mode === 'sessao' && !form.serviceId && services[0]) setForm({ ...form, serviceId: services[0].id });
+  }, [form, services]);
 
   async function save(event: FormEvent | null, skipConflicts = false) {
     event?.preventDefault();
     if (!form) return;
+    setError('');
+    setConflicts([]);
     const startsAt = `${form.date}T${form.time}`;
-    const ok = await run(() => {
+    try {
       if (form.mode !== 'remarcar' && form.repeat) {
         const block = form.mode === 'bloqueio';
-        return api('/api/v1/appointments/series', 'POST', {
+        await api('/api/v1/appointments/series', 'POST', {
           kind: block ? 'BLOCK' : 'SESSION',
           patientId: block ? null : form.patientId, serviceId: block ? null : form.serviceId,
           startDate: form.date, startTime: form.time,
@@ -95,59 +93,85 @@ export function AgendaTab({ owner }: { owner: boolean }) {
           occurrences: form.limitMode === 'vezes' ? Number(form.limit) : null,
           notes: form.notes || null, skipConflicts
         });
-      }
-      if (form.mode === 'sessao') {
-        return api('/api/v1/appointments', 'POST', {
+      } else if (form.mode === 'sessao') {
+        await api('/api/v1/appointments', 'POST', {
           patientId: form.patientId, serviceId: form.serviceId, startsAt,
           durationMinutes: form.duration ? Number(form.duration) : null, notes: form.notes || null
         });
+      } else if (form.mode === 'bloqueio') {
+        await api('/api/v1/blocks', 'POST', { startsAt, endsAt: `${form.date}T${form.endTime}`, notes: form.notes || null });
+      } else {
+        await api(`/api/v1/appointments/${form.item.id}`, 'PUT', {
+          startsAt, durationMinutes: Number(form.duration), notes: form.notes || null
+        });
       }
-      if (form.mode === 'bloqueio') {
-        return api('/api/v1/blocks', 'POST', { startsAt, endsAt: `${form.date}T${form.endTime}`, notes: form.notes || null });
-      }
-      return api(`/api/v1/appointments/${form.item.id}`, 'PUT', {
-        startsAt, durationMinutes: Number(form.duration), notes: form.notes || null
-      });
-    });
-    if (ok) {
+      toast(form.mode === 'remarcar' ? 'Horário alterado' : form.mode === 'bloqueio' ? 'Horário bloqueado' : 'Sessão agendada');
       setForm(null);
-      if (dateOf(startsAt) !== date && view === 'dia') setDate(dateOf(startsAt));
+      if (dateOf(startsAt) !== date) setDate(dateOf(startsAt));
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+      if (e instanceof ApiError) setConflicts(e.conflicts);
     }
   }
 
-  const days = useMemo(() => {
-    const list = view === 'dia' ? [date] : Array.from({ length: 7 }, (_, i) => addDays(from, i));
-    return list.map(day => ({ day, items: items.filter(i => dateOf(i.startsAt) === day) }));
-  }, [view, date, from, items]);
-
+  const week = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(from, i)), [from]);
+  const ofDay = (day: string) => (items ?? []).filter(i => dateOf(i.startsAt) === day);
+  const days = view === 'dia' ? [date] : week;
   const step = view === 'dia' ? 1 : 7;
-  const noRepeat = (day: string): Repeat => ({ repeat: false, weekdays: [isoWeekday(day)], limitMode: 'semanas', limit: '4' });
   const now = nowLocal();
+  const reschedule = (item: Appointment) => {
+    setError(''); setConflicts([]);
+    setForm({ mode: 'remarcar', item, date: dateOf(item.startsAt), time: timeOf(item.startsAt),
+      duration: String(minutesBetween(item.startsAt, item.endsAt)), notes: item.notes ?? '' });
+  };
 
   return (
     <section>
-      <div className="agenda-head">
-        <h2>Agenda</h2>
+      <PageHeader title="Agenda" subtitle={view === 'dia' ? longDayLabel(date) : `${dayLabel(from)} a ${dayLabel(to)}`}>
+        {owner && <button className="primary" disabled={services.length === 0} onClick={newSession}>
+          <Icon name="plus" size={18} /> Sessão</button>}
+        <Menu label="Mais opções da agenda" items={[
+          owner && { label: 'Bloquear horário', icon: 'block', onClick: newBlock },
+          { label: 'Lembretes de amanhã', icon: 'whatsapp', onClick: () => setReminders(true) },
+          { label: showCanceled ? 'Esconder canceladas' : 'Mostrar canceladas', icon: 'x', onClick: () => setShowCanceled(v => !v) }
+        ]} />
+      </PageHeader>
+
+      <div className="date-bar">
+        <button className="icon-button" aria-label="Anterior" onClick={() => setDate(addDays(date, -step))}><Icon name="left" /></button>
+        <button className="icon-button" aria-label="Próximo" onClick={() => setDate(addDays(date, step))}><Icon name="right" /></button>
+        {date !== today() && <button className="small-button" onClick={() => setDate(today())}>Hoje</button>}
         <div className="segmented" role="group" aria-label="Visualização">
-          <button className={view === 'dia' ? 'active' : ''} onClick={() => setView('dia')}>Dia</button>
-          <button className={view === 'semana' ? 'active' : ''} onClick={() => setView('semana')}>Semana</button>
+          <button className={view === 'dia' ? 'active' : ''} aria-pressed={view === 'dia'} onClick={() => setView('dia')}>Dia</button>
+          <button className={view === 'semana' ? 'active' : ''} aria-pressed={view === 'semana'} onClick={() => setView('semana')}>Semana</button>
         </div>
       </div>
 
-      <div className="date-nav">
-        <button aria-label="Anterior" onClick={() => setDate(addDays(date, -step))}>‹</button>
-        <strong>{view === 'dia' ? dayLabel(date) : `${dayLabel(from)} a ${dayLabel(to)}`}</strong>
-        <button aria-label="Próximo" onClick={() => setDate(addDays(date, step))}>›</button>
-        {date !== today() && <button onClick={() => setDate(today())}>Hoje</button>}
+      <div className="week-strip" role="group" aria-label="Dias da semana">
+        {week.map(day => {
+          const chip = dayChip(day);
+          const count = daySummary(ofDay(day)).sessions;
+          return (
+            <button key={day} className={[view === 'dia' && day === date ? 'on' : '', day === today() ? 'today' : ''].join(' ')}
+                    aria-pressed={view === 'dia' && day === date} aria-label={`${dayLabel(day)}, ${count} sessões`}
+                    onClick={() => { setDate(day); setView('dia'); }}>
+              <span>{chip.day}</span><strong>{chip.number}</strong>
+              <i className="dots">{Array.from({ length: Math.min(count, 3) }, (_, k) => <b key={k} />)}</i>
+            </button>
+          );
+        })}
       </div>
 
       {lowBalance.length > 0 && (
-        <details className="notice small low-balance">
-          <summary>{lowBalance.length === 1 ? '1 pacote acabando' : `${lowBalance.length} pacotes acabando`} — hora de oferecer renovação</summary>
+        <details className="banner">
+          <summary><Icon name="box" size={18} />
+            {lowBalance.length === 1 ? '1 pacote acabando' : `${lowBalance.length} pacotes acabando`} — hora de oferecer renovação</summary>
           <ul>
             {lowBalance.map(pkg => (
               <li key={pkg.id}>
-                <button className="link" onClick={() => navigate('/painel/pacientes/' + pkg.patientId)}>{pkg.patientName}</button>
+                <a href={`/painel/pacientes/${pkg.patientId}`} onClick={e => { e.preventDefault(); navigate('/painel/pacientes/' + pkg.patientId); }}>
+                  {pkg.patientName}</a>
                 {' '}· {pkg.serviceName} · {pkg.remaining <= 0 ? 'acabou' : `${sessionsLabel(pkg.remaining)} restante${pkg.remaining === 1 ? '' : 's'}`}
                 {pkg.patientWhatsapp && <> · <a href={whatsappLink(pkg.patientWhatsapp, renewalMessage(pkg.patientName, pkg))}
                                                 target="_blank" rel="noreferrer">WhatsApp</a></>}
@@ -156,113 +180,160 @@ export function AgendaTab({ owner }: { owner: boolean }) {
           </ul>
         </details>
       )}
-
-      {reminders && <Reminders onClose={() => setReminders(false)} />}
-
-      {!form && !owner && !reminders && (
-        <div className="actions"><button onClick={() => setReminders(true)}>Lembretes de amanhã</button></div>
+      {owner && services.length === 0 && items !== null && (
+        <p className="notice small">Cadastre um serviço em <a href="/painel/catalogo" onClick={e => { e.preventDefault(); navigate('/painel/catalogo'); }}>
+          Serviços e pacotes</a> para poder agendar sessões.</p>
       )}
-      {owner && !form && (
-        <div className="actions">
-          <button className="primary" disabled={services.length === 0}
-                  onClick={() => setForm({ mode: 'sessao', patientId: '', serviceId: services[0]?.id ?? '', date,
-                    time: '08:00', duration: '', notes: '', ...noRepeat(date) })}>+ Sessão</button>
-          <button onClick={() => setForm({ mode: 'bloqueio', date, time: '12:00', endTime: '14:00', notes: '', ...noRepeat(date) })}>
-            Bloquear horário</button>
-          {!reminders && <button onClick={() => setReminders(true)}>Lembretes de amanhã</button>}
-        </div>
-      )}
-      {owner && services.length === 0 && <p className="notice small">Cadastre um serviço para poder agendar sessões.</p>}
-      {owner && form && <AgendaForm form={form} setForm={setForm} patients={patients} services={services}
-                                    onSubmit={e => save(e)} onSkipConflicts={() => save(null, true)}
-                                    onCancel={() => { setForm(null); setError(''); setConflicts([]); }}
-                                    error={error} conflicts={conflicts} />}
       {!form && error && <p className="error" role="alert">{error}</p>}
 
-      <label className="check small agenda-filter"><input type="checkbox" checked={showCanceled}
-                                            onChange={e => setShowCanceled(e.target.checked)} /> Mostrar canceladas</label>
+      {days.map(day => {
+        const dayItems = ofDay(day);
+        return (
+          <div key={day} className="agenda-day">
+            <div className="day-head">
+              {view === 'semana'
+                ? <button className="link-button strong" onClick={() => { setDate(day); setView('dia'); }}>{dayLabel(day)}</button>
+                : <strong>{day === today() ? 'Hoje' : dayLabel(day)}</strong>}
+              <span className="muted small">{summaryText(daySummary(dayItems))}</span>
+            </div>
+            {items !== null && dayItems.length === 0 && (view === 'dia'
+              ? <EmptyState icon="calendar" title="Dia livre" text="Nada marcado para este dia.">
+                  {owner && services.length > 0 && <button className="primary" onClick={newSession}><Icon name="plus" size={18} /> Agendar sessão</button>}
+                </EmptyState>
+              : <p className="muted small empty-line">Nada marcado.</p>)}
+            <ul className="timeline">
+              {dayItems.map(item => (
+                <AppointmentCard key={item.id} item={item} owner={owner} started={item.startsAt.slice(0, 16) <= now}
+                                 onChanged={load} onError={setError} onReschedule={() => reschedule(item)} />
+              ))}
+            </ul>
+          </div>
+        );
+      })}
 
-      {days.map(({ day, items: dayItems }) => (
-        <div key={day} className="agenda-day">
-          {view === 'semana' && (
-            <h3><button className="link" onClick={() => { setDate(day); setView('dia'); }}>{dayLabel(day)}</button></h3>
-          )}
-          <ul className="list">
-            {dayItems.length === 0 && <li className="muted small">Nada marcado.</li>}
-            {dayItems.map(item => (
-              <AgendaItem key={item.id} item={item} owner={owner} started={item.startsAt.slice(0, 16) <= now}
-                          onStatus={s => changeStatus(item, s)} onCancel={() => cancel(item)}
-                          onCancelUpcoming={() => cancelUpcoming(item)}
-                          onReschedule={() => setForm({
-                            mode: 'remarcar', item, date: dateOf(item.startsAt), time: timeOf(item.startsAt),
-                            duration: String(minutesBetween(item.startsAt, item.endsAt)), notes: item.notes ?? ''
-                          })} />
-            ))}
-          </ul>
-        </div>
-      ))}
+      {owner && form && (
+        <Sheet title={form.mode === 'sessao' ? 'Nova sessão' : form.mode === 'bloqueio' ? 'Bloquear horário'
+          : form.item.kind === 'BLOCK' ? 'Alterar bloqueio' : `Remarcar ${form.item.patientName}`}
+               onClose={() => { setForm(null); setError(''); setConflicts([]); }}>
+          <AgendaForm form={form} setForm={setForm} patients={patients} services={services}
+                      onSubmit={e => save(e)} onSkipConflicts={() => save(null, true)}
+                      onCancel={() => { setForm(null); setError(''); setConflicts([]); }}
+                      error={error} conflicts={conflicts} />
+        </Sheet>
+      )}
+      {reminders && <Reminders onClose={() => setReminders(false)} />}
     </section>
   );
 }
 
-function AgendaItem({ item, owner, started, onStatus, onCancel, onCancelUpcoming, onReschedule }: {
-  item: Appointment; owner: boolean; started: boolean;
-  onStatus: (s: AppointmentStatus) => void; onCancel: () => void; onCancelUpcoming: () => void; onReschedule: () => void;
+/**
+ * Uma sessão (ou bloqueio) da agenda: horário, paciente, serviço, saldo do pacote e status, com UMA ação em destaque
+ * (pedir confirmação antes do horário, realizada depois) e as demais no menu "⋯". Usado na Agenda e na tela Hoje.
+ */
+export function AppointmentCard({ item, owner, started, onChanged, onError, onReschedule }: {
+  item: Appointment; owner: boolean; started: boolean; onChanged: () => Promise<unknown> | void;
+  onError: (message: string) => void; onReschedule?: () => void;
 }) {
-  const time = `${timeOf(item.startsAt)}–${timeOf(item.endsAt)}`;
+  const { toast, confirm } = useUi();
+
+  async function run(action: () => Promise<unknown>, message: string) {
+    onError('');
+    try {
+      await action();
+      toast(message);
+      await onChanged();
+    } catch (e) { onError((e as Error).message); }
+  }
+  const setStatus = (status: AppointmentStatus, message: string) =>
+    run(() => api(`/api/v1/appointments/${item.id}/status`, 'POST', { status }), message);
+  async function cancel() {
+    const block = item.kind === 'BLOCK';
+    if (await confirm(block ? 'Remover este bloqueio de horário?' : `Cancelar a sessão de ${item.patientName}?`,
+      { confirmLabel: block ? 'Remover' : 'Cancelar sessão', danger: true })) {
+      await run(() => api(`/api/v1/appointments/${item.id}`, 'DELETE'), block ? 'Bloqueio removido' : 'Sessão cancelada');
+    }
+  }
+  async function cancelUpcoming() {
+    const what = item.kind === 'BLOCK' ? 'os próximos bloqueios desta série' : `as próximas sessões de ${item.patientName} desta série`;
+    if (await confirm(`Cancelar ${what}, a partir de ${dayLabel(item.startsAt)}? O que já foi realizado não muda.`,
+      { confirmLabel: 'Cancelar próximas', danger: true })) {
+      await run(() => api(`/api/v1/appointments/series/${item.seriesId}?from=${dateOf(item.startsAt)}`, 'DELETE'), 'Próximas canceladas');
+    }
+  }
+
+  const time = (
+    <div className="appt-time"><strong>{timeOf(item.startsAt)}</strong><span>{timeOf(item.endsAt)}</span></div>
+  );
+  const canceled = item.status === 'CANCELED';
+
   if (item.kind === 'BLOCK') {
     return (
-      <li className={item.status === 'CANCELED' ? 'item block inactive' : 'item block'}>
-        <div><strong>{time}</strong> · Bloqueado{item.notes && `: ${item.notes}`}
-          {item.status === 'CANCELED' && <span className="tag">removido</span>}</div>
-        {owner && item.status !== 'CANCELED' && (
-          <div className="actions"><button onClick={onReschedule}>Alterar</button>
-            <button className="danger" onClick={onCancel}>Remover</button>
-            {item.seriesId && <button className="danger" onClick={onCancelUpcoming}>Remover próximos</button>}</div>
+      <li className={canceled ? 'appt block inactive' : 'appt block'}>
+        {time}
+        <div className="appt-body">
+          <div className="appt-title"><Icon name="block" size={16} /> Bloqueado{item.notes && `: ${item.notes}`}
+            {canceled && <span className="pill">removido</span>}</div>
+        </div>
+        {owner && !canceled && (
+          <div className="appt-actions">
+            <Menu label="Ações do bloqueio" items={[
+              onReschedule && { label: 'Alterar', icon: 'edit', onClick: onReschedule },
+              { label: 'Remover', icon: 'trash', danger: true, onClick: cancel },
+              item.seriesId && { label: 'Remover próximos', icon: 'repeat', danger: true, onClick: cancelUpcoming }
+            ]} />
+          </div>
         )}
       </li>
     );
   }
+
   const open = item.status === 'SCHEDULED' || item.status === 'CONFIRMED';
+  const confirmLink = item.patientWhatsapp
+    ? whatsappLink(item.patientWhatsapp, confirmationMessage(item.patientName ?? '', item.serviceName ?? '', item.startsAt, today()))
+    : null;
+  const primary = primaryAction(item, started, !!confirmLink);
+  const menu: MenuEntry[] = owner ? [
+    item.status === 'SCHEDULED' && primary !== 'confirm' && { label: 'Marcar como confirmada', icon: 'check', onClick: () => setStatus('CONFIRMED', 'Sessão confirmada') },
+    open && started && { label: 'Marcar falta', icon: 'x', onClick: () => setStatus('NO_SHOW', 'Falta registrada') },
+    open && onReschedule && { label: 'Remarcar', icon: 'calendar', onClick: onReschedule },
+    (item.status === 'DONE' || item.status === 'NO_SHOW') && { label: 'Desfazer', icon: 'repeat', onClick: () => setStatus('CONFIRMED', 'Status desfeito') },
+    canceled && { label: 'Reativar', icon: 'repeat', onClick: () => setStatus('SCHEDULED', 'Sessão reativada') },
+    item.patientId && { label: 'Ver paciente', icon: 'users', onClick: () => navigate('/painel/pacientes/' + item.patientId) },
+    open && { label: 'Cancelar sessão', icon: 'trash', danger: true, onClick: cancel },
+    open && item.seriesId && { label: 'Cancelar próximas', icon: 'repeat', danger: true, onClick: cancelUpcoming }
+  ] : [];
+
   return (
-    <li className={item.status === 'CANCELED' ? 'item inactive' : 'item'}>
-      <div>
-        <strong>{time}</strong> · {item.patientName}{item.seriesId && <span title="Sessão recorrente"> ↻</span>}
-        <span className={`status status-${item.status.toLowerCase()}`}>{STATUS_LABEL[item.status]}</span>
-        <div className="muted small">
-          {item.serviceName}
-          {item.originalStartsAt && ` · remarcada (era ${dayLabel(item.originalStartsAt)} ${timeOf(item.originalStartsAt)})`}
+    <li className={`appt status-${item.status.toLowerCase()}${canceled ? ' inactive' : ''}`}>
+      {time}
+      <div className="appt-body">
+        <div className="appt-title">
+          {item.patientId
+            ? <a className="name-link" href={`/painel/pacientes/${item.patientId}`}
+                 onClick={e => { e.preventDefault(); navigate('/painel/pacientes/' + item.patientId); }}>{item.patientName}</a>
+            : item.patientName}
+          {item.seriesId && <span className="muted" title="Sessão recorrente"><Icon name="repeat" size={14} /></span>}
+          <span className={`pill status status-${item.status.toLowerCase()}`}>{STATUS_LABEL[item.status]}</span>
         </div>
-        {item.status !== 'CANCELED' && (
-          <div className="small">
-            {item.patientPackageId
-              ? <>Pacote {item.packageName} · <span className={item.packageRemaining !== null && item.packageRemaining <= 2 ? 'warn' : ''}>
-                  {item.packageRemaining} {item.packageRemaining === 1 ? 'restante' : 'restantes'}</span></>
-              : <span className="muted">Sessão avulsa</span>}
-          </div>
-        )}
-        {item.notes && <div className="small">{item.notes}</div>}
+        <div className="meta">
+          <span>{item.serviceName}</span>
+          {!canceled && (item.patientPackageId
+            ? <span className={item.packageRemaining !== null && item.packageRemaining <= 2 ? 'pill warn' : 'pill'}>
+                {item.packageName} · {item.packageRemaining} {item.packageRemaining === 1 ? 'restante' : 'restantes'}</span>
+            : <span className="pill">avulsa</span>)}
+          {item.originalStartsAt && <span>remarcada (era {dayLabel(item.originalStartsAt)} {timeOf(item.originalStartsAt)})</span>}
+        </div>
+        {item.notes && <p className="appt-notes">{item.notes}</p>}
       </div>
-      {(owner || (item.status === 'SCHEDULED' && !started && item.patientWhatsapp)) && (
-        <div className="actions">
-          {item.status === 'SCHEDULED' && !started && item.patientWhatsapp && (
-            <a className="button wa" target="_blank" rel="noreferrer"
-               href={whatsappLink(item.patientWhatsapp, confirmationMessage(item.patientName ?? '', item.serviceName ?? '', item.startsAt, today()))}>
-              Pedir confirmação</a>
-          )}
-          {owner && <>
-            {item.status === 'SCHEDULED' && <button onClick={() => onStatus('CONFIRMED')}>Confirmar</button>}
-            {open && started && <button onClick={() => onStatus('DONE')}>Realizada</button>}
-            {open && started && <button onClick={() => onStatus('NO_SHOW')}>Falta</button>}
-            {open && <button onClick={onReschedule}>Remarcar</button>}
-            {open && <button className="danger" onClick={onCancel}>Cancelar</button>}
-            {open && item.seriesId && <button className="danger" onClick={onCancelUpcoming}>Cancelar próximas</button>}
-            {(item.status === 'DONE' || item.status === 'NO_SHOW') &&
-              <button onClick={() => onStatus('CONFIRMED')}>Desfazer</button>}
-            {item.status === 'CANCELED' && <button onClick={() => onStatus('SCHEDULED')}>Reativar</button>}
-          </>}
-        </div>
-      )}
+      <div className="appt-actions">
+        {primary === 'ask-confirmation' && confirmLink && (
+          <a className="button wa" target="_blank" rel="noreferrer" href={confirmLink}>
+            <Icon name="whatsapp" size={18} /> Pedir confirmação</a>
+        )}
+        {owner && primary === 'confirm' && <button onClick={() => setStatus('CONFIRMED', 'Sessão confirmada')}><Icon name="check" size={18} /> Confirmar</button>}
+        {owner && primary === 'done' && <button className="primary" onClick={() => setStatus('DONE', 'Sessão realizada')}><Icon name="check" size={18} /> Realizada</button>}
+        <Menu label={`Ações da sessão de ${item.patientName}`} items={menu} />
+      </div>
     </li>
   );
 }
@@ -274,7 +345,7 @@ function AgendaForm({ form, setForm, patients, services, onSubmit, onSkipConflic
   const [search, setSearch] = useState('');
   const set = (patch: Partial<Form>) => setForm({ ...form, ...patch } as Form);
   const fold = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  const shown = patients.filter(p => fold(p.fullName).includes(fold(search)));
+  const shown = patients.filter(p => p.active && fold(p.fullName).includes(fold(search)));
   const service = form.mode === 'sessao' ? services.find(s => s.id === form.serviceId) : undefined;
   // O dia da semana pré-marcado na repetição acompanha a data enquanto a pessoa não escolher outros dias.
   const changeDate = (date: string) => {
@@ -284,13 +355,13 @@ function AgendaForm({ form, setForm, patients, services, onSubmit, onSkipConflic
   };
 
   return (
-    <form className="card form" onSubmit={onSubmit}>
-      <h3>{form.mode === 'sessao' ? 'Nova sessão' : form.mode === 'bloqueio' ? 'Bloquear horário'
-        : form.item.kind === 'BLOCK' ? 'Alterar bloqueio' : `Remarcar ${form.item.patientName}`}</h3>
-
+    <form className="form" onSubmit={onSubmit}>
       {form.mode === 'sessao' && (
         <>
-          {patients.length === 0 && <p className="notice small">Cadastre o paciente na aba Pacientes primeiro.</p>}
+          {patients.length === 0 && (
+            <p className="notice small">Cadastre o paciente primeiro em{' '}
+              <a href="/painel/pacientes/novo" onClick={e => { e.preventDefault(); navigate('/painel/pacientes/novo'); }}>Pacientes</a>.</p>
+          )}
           <label>Paciente
             <input type="search" placeholder="Digite para filtrar" value={search} aria-label="Filtrar pacientes"
                    onChange={e => setSearch(e.target.value)} />
@@ -302,6 +373,7 @@ function AgendaForm({ form, setForm, patients, services, onSubmit, onSkipConflic
           </label>
           <label>Serviço
             <select required value={form.serviceId} onChange={e => set({ serviceId: e.target.value })}>
+              {services.length === 0 && <option value="">Escolha…</option>}
               {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
@@ -334,9 +406,9 @@ function AgendaForm({ form, setForm, patients, services, onSubmit, onSkipConflic
           <button type="button" onClick={onSkipConflicts}>Agendar pulando esses dias</button>
         </div>
       )}
-      <div className="actions">
+      <div className="sheet-actions">
+        <button type="button" onClick={onCancel}>Cancelar</button>
         <button className="primary">{form.mode === 'remarcar' ? 'Salvar' : form.mode === 'bloqueio' ? 'Bloquear' : 'Agendar'}</button>
-        <button type="button" onClick={onCancel}>Voltar</button>
       </div>
     </form>
   );
@@ -354,8 +426,8 @@ function RepeatFields({ form, set }: { form: Form & Repeat; set: (patch: Partial
 
   return (
     <fieldset className="repeat">
-      <label className="check"><input type="checkbox" checked={form.repeat}
-                                      onChange={e => set({ repeat: e.target.checked })} /> Repetir</label>
+      <label className="switch"><input type="checkbox" checked={form.repeat}
+                                       onChange={e => set({ repeat: e.target.checked })} /><span>Repetir</span></label>
       {form.repeat && (
         <>
           <div className="weekdays" role="group" aria-label="Dias da semana">
@@ -406,32 +478,34 @@ function Reminders({ onClose }: { onClose: () => void }) {
   const markSent = (id: string) => setSent(list => (list.includes(id) ? list : [...list, id]));
 
   return (
-    <div className="card form reminders">
-      <h3>Lembretes de amanhã · {dayLabel(tomorrow)}</h3>
-      {error && <p className="error" role="alert">{error}</p>}
-      {items === null && !error && <p className="muted small">Carregando…</p>}
-      {items?.length === 0 && <p className="muted small">Nenhuma sessão marcada para amanhã.</p>}
-      {next && (
-        <a className="button primary-link" href={link(next)} target="_blank" rel="noreferrer" onClick={() => markSent(next.id)}>
-          Enviar próximo ({sent.filter(id => withPhone.some(a => a.id === id)).length + 1} de {withPhone.length}): {next.patientName}
-        </a>
-      )}
-      {items && items.length > 0 && !next && withPhone.length > 0 && <p className="success small">Todos os lembretes foram abertos.</p>}
-      <ul className="list">
-        {(items ?? []).map(a => (
-          <li key={a.id} className="item">
-            <div><strong>{timeOf(a.startsAt)}</strong> · {a.patientName}
-              <span className={`status status-${a.status.toLowerCase()}`}>{STATUS_LABEL[a.status]}</span>
-              <div className="muted small">{a.serviceName}</div></div>
-            {a.patientWhatsapp
-              ? (sent.includes(a.id)
-                ? <span className="success small">Aberto ✓</span>
-                : <a className="button wa" href={link(a)} target="_blank" rel="noreferrer" onClick={() => markSent(a.id)}>Enviar</a>)
-              : <span className="muted small">Sem WhatsApp</span>}
-          </li>
-        ))}
-      </ul>
-      <div className="actions"><button type="button" onClick={onClose}>Fechar</button></div>
-    </div>
+    <Sheet title={`Lembretes de amanhã · ${dayLabel(tomorrow)}`} onClose={onClose}>
+      <div className="form reminders">
+        {error && <p className="error" role="alert">{error}</p>}
+        {items === null && !error && <p className="muted small">Carregando…</p>}
+        {items?.length === 0 && <EmptyState icon="calendar" title="Nenhuma sessão amanhã" />}
+        {next && (
+          <a className="button primary-link big" href={link(next)} target="_blank" rel="noreferrer" onClick={() => markSent(next.id)}>
+            <Icon name="whatsapp" size={20} />
+            Enviar próximo ({sent.filter(id => withPhone.some(a => a.id === id)).length + 1} de {withPhone.length}): {next.patientName}
+          </a>
+        )}
+        {items && items.length > 0 && !next && withPhone.length > 0 && <p className="success small">Todos os lembretes foram abertos.</p>}
+        <ul className="cards">
+          {(items ?? []).map(a => (
+            <li key={a.id} className="row-card">
+              <div className="appt-time"><strong>{timeOf(a.startsAt)}</strong></div>
+              <div className="grow"><strong>{a.patientName}</strong>
+                <div className="meta"><span>{a.serviceName}</span>
+                  <span className={`pill status status-${a.status.toLowerCase()}`}>{STATUS_LABEL[a.status]}</span></div></div>
+              {a.patientWhatsapp
+                ? (sent.includes(a.id)
+                  ? <span className="success small">Aberto ✓</span>
+                  : <a className="button wa" href={link(a)} target="_blank" rel="noreferrer" onClick={() => markSent(a.id)}>Enviar</a>)
+                : <span className="muted small">Sem WhatsApp</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Sheet>
   );
 }
