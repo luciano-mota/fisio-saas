@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { logoUrl, money, whatsappLink, type PublicClinic, type PublicPackage, type PublicService } from './api';
+import { logoUrl, whatsappLink, type PublicClinic, type PublicPhoto, type PublicService } from './api';
 import { themeVariables } from './color';
 import { formatPhone } from './format';
 import { SiteIcon } from './SiteIcons';
+import { bookingMessage, educationItems, mapEmbedUrl, mapLinkUrl, photoUrl } from './siteContent';
 import { autoHeadline, autoSubtitle, FONTS, fontsUrl, resolveFonts, resolveStyle, serviceIcon, STYLES,
   type FontsId, type StyleId } from './siteStyle';
 import './site.css';
@@ -43,10 +44,11 @@ function useBranding(clinic: PublicClinic | null | undefined, logo: string | nul
   }, [clinic, logo]);
 }
 
-function Brand({ clinic, logo, size }: { clinic: PublicClinic; logo: string | null; size: 'small' | 'large' }) {
+/** A logo aparece só na barra do topo e no rodapé; sem logo, as iniciais. */
+function Brand({ clinic, logo }: { clinic: PublicClinic; logo: string | null }) {
   return logo
-    ? <img className={`brand-logo ${size}`} src={logo} alt={`Logo ${clinic.displayName}`} />
-    : <span className={`brand-monogram ${size}`} aria-hidden="true">{initials(clinic.displayName)}</span>;
+    ? <img className="brand-logo" src={logo} alt={`Logo ${clinic.displayName}`} />
+    : <span className="brand-monogram" aria-hidden="true">{initials(clinic.displayName)}</span>;
 }
 
 export function PublicPage({ slug }: { slug: string }) {
@@ -65,26 +67,27 @@ export function PublicPage({ slug }: { slug: string }) {
 }
 
 /**
- * Site da clínica montado a partir da logo, das cores e dos serviços: o estilo (sereno, dinâmico, acolhedor,
- * clínico) define fontes, formas e textos; a clínica pode escolher outro no painel.
+ * Site da clínica: serviços em lista (preço e pagamento ficam para o agendamento), fotos, formação, depoimentos,
+ * perguntas e onde atende. O estilo (sereno, dinâmico, acolhedor, clínico) define fontes, formas e textos.
+ * Cada seção só aparece se tiver conteúdo.
  */
 export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
-  const style: StyleId = resolveStyle(clinic.site?.style, clinic.services, clinic.about);
-  const fonts: FontsId = resolveFonts(clinic.site?.fonts, style);
+  const site = clinic.site;
+  const style: StyleId = resolveStyle(site.style, clinic.services, clinic.about);
+  const fonts: FontsId = resolveFonts(site.fonts, style);
   useFonts(fonts);
   const logo = logoUrl(clinic.logoVersion, clinic.slug);
   useBranding(clinic, logo);
 
-  const headline = clinic.site?.headline || autoHeadline(style, clinic.services);
+  const headline = site.headline || autoHeadline(style, clinic.services);
   const subtitle = autoSubtitle(clinic.services);
-  const hello = clinic.whatsapp
-    ? whatsappLink(clinic.whatsapp, `Olá! Vi o site da ${clinic.displayName} e gostaria de agendar uma avaliação.`)
-    : null;
-  const homeCare = clinic.services.some(s => serviceIcon(s.name, s.description) === 'home');
-  const hasPackages = clinic.services.some(s => s.packages.length > 0);
-  const mapUrl = clinic.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clinic.address)}` : null;
-
+  const book = (serviceName?: string) =>
+    clinic.whatsapp ? whatsappLink(clinic.whatsapp, bookingMessage(clinic.displayName, serviceName)) : null;
+  const hello = book();
+  const homeCare = !!site.serviceArea || clinic.services.some(s => serviceIcon(s.name, s.description) === 'home');
+  const education = educationItems(site.education);
+  const hasAbout = !!(clinic.about || education.length);
+  const hasContact = !!(clinic.address || site.serviceArea || site.hours || hello);
   const vars = useMemo(() => ({
     ...themeVariables(clinic.theme),
     '--font-heading': `'${FONTS[fonts].heading}', Georgia, serif`,
@@ -95,115 +98,213 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
     <div className={`site style-${style}`} style={vars}>
       <a className="skip" href="#servicos">Pular para os serviços</a>
       <header className="site-nav">
-        <a className="site-brand" href="#topo" aria-label={`${clinic.displayName}, início`}>
-          <Brand clinic={clinic} logo={logo} size="small" />
-          <span>{clinic.displayName}</span>
-        </a>
-        <nav className="site-links" aria-label="Seções">
-          <a href="#servicos">Serviços</a>
-          {(clinic.about || clinic.professionalName) && <a href="#sobre">Sobre</a>}
-          <a href="#contato">Contato</a>
-        </nav>
-        {hello && <a className="btn btn-accent btn-sm" href={hello} target="_blank" rel="noreferrer">Agendar</a>}
+        <div className="wrap nav-inner">
+          <a className="site-brand" href="#topo" aria-label={`${clinic.displayName}, início`}>
+            <Brand clinic={clinic} logo={logo} />
+            <span>{clinic.displayName}</span>
+          </a>
+          <nav className="site-links" aria-label="Seções">
+            {clinic.services.length > 0 && <a href="#servicos">Serviços</a>}
+            {hasAbout && <a href="#sobre">Sobre</a>}
+            {site.faqs.length > 0 && <a href="#duvidas">Dúvidas</a>}
+            {hasContact && <a href="#contato">Contato</a>}
+          </nav>
+          {hello && <a className="btn btn-primary btn-sm" href={hello} target="_blank" rel="noreferrer">Agendar</a>}
+        </div>
       </header>
 
-      <section className="hero" id="topo">
+      <section className={site.cover ? 'hero has-cover' : 'hero'} id="topo">
         <div className="hero-bg" aria-hidden="true" />
-        <div className="hero-inner">
+        <div className="wrap hero-inner">
           <div className="hero-text">
             <p className="eyebrow">{STYLES[style].eyebrow}</p>
             <h1>{headline}</h1>
             <p className="hero-sub">{subtitle}</p>
             <div className="hero-actions">
               {hello && (
-                <a className="btn btn-accent btn-lg" href={hello} target="_blank" rel="noreferrer">
+                <a className="btn btn-primary btn-lg" href={hello} target="_blank" rel="noreferrer">
                   <SiteIcon name="whatsapp" size={20} /> Agendar pelo WhatsApp
                 </a>
               )}
-              {clinic.services.length > 0 && <a className="btn btn-ghost btn-lg" href="#servicos">Ver serviços</a>}
-            </div>
-            <ul className="trust" aria-label="Diferenciais">
-              {clinic.crefito && <li><SiteIcon name="award" size={18} /> CREFITO {clinic.crefito}</li>}
-              {homeCare && <li><SiteIcon name="home" size={18} /> Atendimento em casa</li>}
-              {hasPackages && <li><SiteIcon name="calendar" size={18} /> Pacotes de sessões</li>}
-              {hello && <li><SiteIcon name="chat" size={18} /> Resposta pelo WhatsApp</li>}
-            </ul>
-          </div>
-          <div className="hero-visual">
-            <div className="hero-card">
-              <Brand clinic={clinic} logo={logo} size="large" />
-              {clinic.professionalName && (
-                <p className="hero-card-name">{clinic.professionalName}<span>Fisioterapeuta</span></p>
-              )}
+              {clinic.services.length > 0 && <a className="btn-text" href="#servicos">Ver serviços <SiteIcon name="arrow" size={18} /></a>}
             </div>
           </div>
+          <HeroVisual clinic={clinic} />
         </div>
       </section>
 
+      {(clinic.crefito || site.hours || homeCare) && (
+        <section className="facts" aria-label="Informações rápidas">
+          <ul className="wrap facts-list">
+            {clinic.crefito && (
+              <li><SiteIcon name="award" size={22} /><div><strong>Registro profissional</strong><span>CREFITO {clinic.crefito}</span></div></li>
+            )}
+            {homeCare && (
+              <li><SiteIcon name="home" size={22} /><div><strong>Atendimento em casa</strong>
+                <span>{site.serviceArea ?? 'Consulte sua região'}</span></div></li>
+            )}
+            {site.hours && (
+              <li><SiteIcon name="calendar" size={22} /><div><strong>Horários</strong><span>{site.hours}</span></div></li>
+            )}
+          </ul>
+        </section>
+      )}
+
       <main>
-        <section className="section" id="servicos" aria-labelledby="titulo-servicos">
-          <div className="section-head">
-            <p className="eyebrow">O que oferecemos</p>
-            <h2 id="titulo-servicos">Serviços</h2>
-            <p className="section-lead">Escolha o atendimento e a quantidade de sessões. É só chamar no WhatsApp para marcar.</p>
-          </div>
-          {clinic.services.length === 0 && <p className="muted center-text">Em breve.</p>}
-          <div className="cards">
-            {clinic.services.map(service => <ServiceCard key={service.id} clinic={clinic} service={service} />)}
-          </div>
-        </section>
+        {clinic.services.length > 0 && (
+          <section className="section" id="servicos" aria-labelledby="titulo-servicos">
+            <div className="wrap">
+              <div className="section-head">
+                <p className="eyebrow">Atendimentos</p>
+                <h2 id="titulo-servicos">Como posso ajudar</h2>
+              </div>
+              <ul className="services">
+                {clinic.services.map(service => <ServiceItem key={service.id} service={service} link={service.onlineBooking ? book(service.name) : null} />)}
+              </ul>
+            </div>
+          </section>
+        )}
 
-        <section className="section section-tint" aria-labelledby="titulo-como">
-          <div className="section-head">
-            <p className="eyebrow">Simples assim</p>
-            <h2 id="titulo-como">Como funciona</h2>
-          </div>
-          <ol className="steps">
-            <li><span className="step-n">1</span><h3>Escolha o serviço</h3><p>Veja as opções e os pacotes que combinam com você.</p></li>
-            <li><span className="step-n">2</span><h3>Chame no WhatsApp</h3><p>A mensagem já vai pronta; combinamos o melhor horário.</p></li>
-            <li><span className="step-n">3</span><h3>Comece o tratamento</h3><p>Acompanhamento de perto, sessão a sessão.</p></li>
-          </ol>
-        </section>
+        {hasAbout && (
+          <section className="section section-tint" id="sobre" aria-labelledby="titulo-sobre">
+            <div className="wrap about">
+              <div className="about-text">
+                <p className="eyebrow">Quem cuida de você</p>
+                <h2 id="titulo-sobre">{clinic.professionalName ?? clinic.displayName}</h2>
+                {clinic.crefito && <p className="about-role">Fisioterapeuta · CREFITO {clinic.crefito}</p>}
+                {clinic.about && <p className="about-body">{clinic.about}</p>}
+              </div>
+              {education.length > 0 && (
+                <aside className="education" aria-label="Formação">
+                  <h3>Formação</h3>
+                  <ul>{education.map((item, i) => <li key={i}><SiteIcon name="check" size={18} />{item}</li>)}</ul>
+                </aside>
+              )}
+            </div>
+          </section>
+        )}
 
-        {(clinic.about || clinic.professionalName) && (
-          <section className="section about" id="sobre" aria-labelledby="titulo-sobre">
-            <div className="about-mark"><Brand clinic={clinic} logo={logo} size="large" /></div>
-            <div>
-              <p className="eyebrow">Sobre</p>
-              <h2 id="titulo-sobre">{clinic.professionalName ?? clinic.displayName}</h2>
-              {clinic.crefito && <p className="muted">Fisioterapeuta · CREFITO {clinic.crefito}</p>}
-              {clinic.about && <p className="about-text">{clinic.about}</p>}
+        {site.gallery.length > 0 && (
+          <section className="section" aria-labelledby="titulo-galeria">
+            <div className="wrap">
+              <div className="section-head">
+                <p className="eyebrow">Por dentro</p>
+                <h2 id="titulo-galeria">O espaço e o atendimento</h2>
+              </div>
+              <div className={`gallery count-${Math.min(site.gallery.length, 6)}`}>
+                {site.gallery.map(photo => (
+                  <figure key={photo.id}>
+                    <Photo slug={clinic.slug} photo={photo} sizes="(min-width: 860px) 33vw, 50vw" />
+                    {photo.caption && <figcaption>{photo.caption}</figcaption>}
+                  </figure>
+                ))}
+              </div>
             </div>
           </section>
         )}
 
         {hello && (
-          <section className="cta-band" aria-label="Agendar">
-            <h2>Pronto para dar o primeiro passo?</h2>
-            <p>Fale agora e agende sua avaliação.</p>
-            <a className="btn btn-light btn-lg" href={hello} target="_blank" rel="noreferrer">
-              <SiteIcon name="whatsapp" size={20} /> Chamar no WhatsApp
-            </a>
+          <section className="section section-tint" aria-labelledby="titulo-como">
+            <div className="wrap">
+              <div className="section-head">
+                <p className="eyebrow">Simples assim</p>
+                <h2 id="titulo-como">Como agendar</h2>
+              </div>
+              <ol className="steps">
+                <li><span className="step-n">1</span><h3>Escolha o atendimento</h3><p>Veja acima o que combina com você. Na dúvida, comece pela avaliação.</p></li>
+                <li><span className="step-n">2</span><h3>Chame no WhatsApp</h3><p>A mensagem já vai pronta. Combinamos o melhor dia e horário.</p></li>
+                <li><span className="step-n">3</span><h3>Comece o tratamento</h3><p>Acompanhamento de perto, sessão a sessão, com um plano para você.</p></li>
+              </ol>
+            </div>
+          </section>
+        )}
+
+        {site.testimonials.length > 0 && (
+          <section className="section" aria-labelledby="titulo-depoimentos">
+            <div className="wrap">
+              <div className="section-head">
+                <p className="eyebrow">Depoimentos</p>
+                <h2 id="titulo-depoimentos">Quem já foi atendido</h2>
+              </div>
+              <div className="testimonials">
+                {site.testimonials.map((t, i) => (
+                  <figure key={i} className="testimonial">
+                    <blockquote>{t.text}</blockquote>
+                    <figcaption>{t.authorName}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {site.faqs.length > 0 && (
+          <section className="section" id="duvidas" aria-labelledby="titulo-duvidas">
+            <div className="wrap narrow">
+              <div className="section-head">
+                <p className="eyebrow">Dúvidas frequentes</p>
+                <h2 id="titulo-duvidas">Perguntas e respostas</h2>
+              </div>
+              <div className="faq">
+                {site.faqs.map((f, i) => (
+                  <details key={i}>
+                    <summary>{f.question}</summary>
+                    <p>{f.answer}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {hasContact && (
+          <section className="section section-tint" id="contato" aria-labelledby="titulo-contato">
+            <div className={site.showMap && clinic.address ? 'wrap contact with-map' : 'wrap contact'}>
+              <div>
+                <p className="eyebrow">Onde atendo</p>
+                <h2 id="titulo-contato">Vamos conversar</h2>
+                <ul className="contact-list">
+                  {clinic.address && (
+                    <li><SiteIcon name="pin" size={22} /><div><strong>Endereço</strong>
+                      <a href={mapLinkUrl(clinic.address)} target="_blank" rel="noreferrer">{clinic.address}</a></div></li>
+                  )}
+                  {site.serviceArea && (
+                    <li><SiteIcon name="home" size={22} /><div><strong>Atendimento em casa</strong><span>{site.serviceArea}</span></div></li>
+                  )}
+                  {site.hours && (
+                    <li><SiteIcon name="calendar" size={22} /><div><strong>Horários</strong><span>{site.hours}</span></div></li>
+                  )}
+                  {clinic.whatsapp && hello && (
+                    <li><SiteIcon name="whatsapp" size={22} /><div><strong>WhatsApp</strong>
+                      <a href={hello} target="_blank" rel="noreferrer">{formatPhone(clinic.whatsapp)}</a></div></li>
+                  )}
+                </ul>
+                {hello && (
+                  <a className="btn btn-primary btn-lg" href={hello} target="_blank" rel="noreferrer">
+                    <SiteIcon name="whatsapp" size={20} /> Agendar pelo WhatsApp
+                  </a>
+                )}
+              </div>
+              {site.showMap && clinic.address && (
+                <iframe className="map" title={`Mapa: ${clinic.address}`} src={mapEmbedUrl(clinic.address)}
+                        loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+              )}
+            </div>
           </section>
         )}
       </main>
 
-      <footer className="site-footer" id="contato">
-        <div className="footer-brand">
-          <Brand clinic={clinic} logo={logo} size="small" />
-          <strong>{clinic.displayName}</strong>
+      <footer className="site-footer">
+        <div className="wrap footer-inner">
+          <div className="footer-brand">
+            <Brand clinic={clinic} logo={logo} />
+            <div>
+              <strong>{clinic.displayName}</strong>
+              {clinic.professionalName && <span>{clinic.professionalName}{clinic.crefito && ` · CREFITO ${clinic.crefito}`}</span>}
+            </div>
+          </div>
+          <p className="footer-note">© {new Date().getFullYear()} {clinic.displayName}</p>
         </div>
-        <ul className="footer-contact">
-          {clinic.whatsapp && hello && (
-            <li><SiteIcon name="whatsapp" size={18} /> <a href={hello} target="_blank" rel="noreferrer">{formatPhone(clinic.whatsapp)}</a></li>
-          )}
-          {clinic.address && (
-            <li><SiteIcon name="pin" size={18} /> {mapUrl
-              ? <a href={mapUrl} target="_blank" rel="noreferrer">{clinic.address}</a> : clinic.address}</li>
-          )}
-          {clinic.crefito && <li><SiteIcon name="award" size={18} /> CREFITO {clinic.crefito}</li>}
-        </ul>
-        <p className="footer-note">© {new Date().getFullYear()} {clinic.displayName}</p>
       </footer>
 
       {hello && (
@@ -215,59 +316,59 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
   );
 }
 
-/** "10 sessões" fica como está; "Pacote mensal" vira "Pacote mensal (8 sessões)". */
-function packageLabel(p: PublicPackage): string {
-  return p.name.includes(String(p.sessionCount)) ? p.name : `${p.name} (${p.sessionCount} sessões)`;
-}
-
-/** Menor preço por sessão entre avulsa e pacotes com preço visível ("a partir de"). */
-function lowestPerSession(service: PublicService): number | null {
-  const values = [service.price, ...service.packages.map(p => (p.price === null ? null : p.price / p.sessionCount))]
-    .filter((v): v is number => v !== null);
-  return values.length ? Math.min(...values) : null;
-}
-
-function ServiceCard({ clinic, service }: { clinic: PublicClinic; service: PublicService }) {
-  const [choice, setChoice] = useState<string>('single');
-  const selected: PublicPackage | undefined = service.packages.find(p => p.id === choice);
-  const price = selected ? selected.price : service.price;
-  const label = selected ? packageLabel(selected) : 'sessão avulsa';
-  const from = lowestPerSession(service);
-  const message = `Olá! Vi seu site e quero agendar ${service.name} – ${label}. Quais horários você tem?`;
-
+function Photo({ slug, photo, sizes, eager }: { slug: string; photo: PublicPhoto; sizes: string; eager?: boolean }) {
   return (
-    <article className="card">
-      <div className="card-top">
-        <span className="card-icon"><SiteIcon name={serviceIcon(service.name, service.description)} size={26} /></span>
-        <span className="card-meta">{service.durationMinutes} min</span>
+    <img src={photoUrl(slug, photo.id)} width={photo.width} height={photo.height} sizes={sizes}
+         alt={photo.caption ?? ''} loading={eager ? 'eager' : 'lazy'} decoding="async" />
+  );
+}
+
+/** Foto de capa; sem ela, um cartão com a profissional e os principais atendimentos (sem repetir a logo). */
+function HeroVisual({ clinic }: { clinic: PublicClinic }) {
+  const cover = clinic.site.cover;
+  const badge = clinic.professionalName && (
+    <p className="hero-badge">
+      <strong>{clinic.professionalName}</strong>
+      <span>Fisioterapeuta{clinic.crefito && ` · CREFITO ${clinic.crefito}`}</span>
+    </p>
+  );
+  if (cover) {
+    return (
+      <div className="hero-visual">
+        <div className="hero-photo"><Photo slug={clinic.slug} photo={cover} sizes="(min-width: 860px) 45vw, 100vw" eager /></div>
+        {badge}
       </div>
-      <h3>{service.name}</h3>
-      {service.description && <p className="card-desc">{service.description}</p>}
-
-      {service.packages.length > 0 && (
-        <label className="card-select">Quantidade
-          <select value={choice} onChange={e => setChoice(e.target.value)}>
-            <option value="single">Sessão avulsa</option>
-            {service.packages.map(p => <option key={p.id} value={p.id}>{packageLabel(p)}</option>)}
-          </select>
-        </label>
-      )}
-
-      <div className="card-price">
-        <span className={price === null ? 'price on-request' : 'price'}>{money(price)}</span>
-        {selected && selected.price !== null && selected.sessionCount > 1 && (
-          <span className="per">{money(selected.price / selected.sessionCount)} por sessão</span>
+    );
+  }
+  const top = clinic.services.slice(0, 4);
+  if (top.length === 0 && !badge) return null;
+  return (
+    <div className="hero-visual">
+      <div className="hero-panel">
+        {badge}
+        {top.length > 0 && (
+          <ul>
+            {top.map(s => <li key={s.id}><span className="mini-icon"><SiteIcon name={serviceIcon(s.name, s.description)} size={20} /></span>{s.name}</li>)}
+          </ul>
         )}
-        {!selected && price === null && from !== null && <span className="per">a partir de {money(from)} por sessão</span>}
       </div>
+    </div>
+  );
+}
 
-      {service.onlineBooking && clinic.whatsapp ? (
-        <a className="btn btn-primary card-cta" href={whatsappLink(clinic.whatsapp, message)} target="_blank" rel="noreferrer">
-          Agendar <SiteIcon name="arrow" size={18} />
-        </a>
-      ) : (
-        <p className="muted small">Agendamento direto com a clínica.</p>
-      )}
-    </article>
+/** Serviço em lista: o que é e quanto dura. Preço e forma de pagamento ficam para o agendamento. */
+function ServiceItem({ service, link }: { service: PublicService; link: string | null }) {
+  return (
+    <li className="service">
+      <span className="service-icon"><SiteIcon name={serviceIcon(service.name, service.description)} size={26} /></span>
+      <div>
+        <h3>{service.name}</h3>
+        {service.description && <p>{service.description}</p>}
+        <p className="service-meta">
+          <span>{service.durationMinutes} min por sessão</span>
+          {link && <a href={link} target="_blank" rel="noreferrer" aria-label={`Agendar ${service.name} pelo WhatsApp`}>Agendar <SiteIcon name="arrow" size={16} /></a>}
+        </p>
+      </div>
+    </li>
   );
 }

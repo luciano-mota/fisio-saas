@@ -95,7 +95,7 @@ a.button {
 .preview-hero { display: flex; align-items: center; gap: 10px; }
 .preview-logo { background: #fff; border-radius: 8px; padding: 4px 6px; display: inline-grid; }
 .preview-logo img { height: 28px; max-width: 90px; object-fit: contain; }
-.preview-cta { margin: 12px; background: var(--color-accent); color: var(--color-on-accent); border: 0; font-weight: 600; }
+.preview-cta { margin: 12px; background: var(--color-primary); color: var(--color-on-primary); border: 0; font-weight: 600; }
 
 /* Agenda */
 .agenda-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -163,7 +163,7 @@ label.button.disabled { opacity: .6; cursor: default; }
 .palette-dots i { width: 18px; height: 18px; border-radius: 99px; border: 1px solid rgba(0,0,0,.1); }
 .palette-cta {
   margin: 0 10px; padding: 4px 10px; border-radius: 6px; font-size: .8rem; font-weight: 600; justify-self: start;
-  background: var(--color-accent); color: var(--color-on-accent);
+  background: var(--color-primary); color: var(--color-on-primary); border: 1px solid rgba(255, 255, 255, .6);
 }
 
 /* Escolha do estilo e das fontes do site */
@@ -176,3 +176,18 @@ label.button.disabled { opacity: .6; cursor: default; }
 .choice.on { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, #fff); }
 .font-sample { font-family: var(--sample-heading), serif; font-size: 1.35rem !important; color: var(--text) !important; font-weight: 700; }
 .font-body-sample { font-family: var(--sample-body), sans-serif; }
+
+/* Aba Site: fotos, depoimentos e perguntas */
+h4 { margin: 8px 0 0; font-size: .98rem; }
+.photo-cover { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.photo-frame {
+  aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--bg, #f3f4f6); border: 1px solid var(--border);
+  display: grid; place-items: center;
+}
+.photo-frame.cover { width: 140px; aspect-ratio: 4 / 5; }
+.photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+.photo-grid { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.photo-grid li { display: grid; gap: 8px; align-content: start; }
+.photo-grid .actions button { padding: 6px 10px; }
+.item.site-item { align-items: flex-start; }
+.item.site-item p { margin: 0 0 4px; }

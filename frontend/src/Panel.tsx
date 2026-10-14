@@ -1,19 +1,19 @@
-import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, logoUrl, money, signOut, type ClinicProfile, type Me, type Service, type SessionPackage } from './api';
-import { contrastRatio, readableTextOn, themeVariables } from './color';
+import { themeVariables } from './color';
 import { AgendaTab } from './Agenda';
-import { LogoSection } from './LogoSection';
-import { SiteSection } from './SiteSection';
+import { SiteTab } from './SiteTab';
 import { PatientsTab } from './Patients';
 import { navigate, usePath } from './router';
 
-type Tab = 'agenda' | 'pacientes' | 'servicos' | 'pacotes' | 'clinica';
+type Tab = 'agenda' | 'pacientes' | 'servicos' | 'pacotes' | 'site' | 'clinica';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'agenda', label: 'Agenda' },
   { id: 'pacientes', label: 'Pacientes' },
   { id: 'servicos', label: 'Serviços' },
   { id: 'pacotes', label: 'Pacotes' },
-  { id: 'clinica', label: 'Clínica e aparência' }
+  { id: 'site', label: 'Site' },
+  { id: 'clinica', label: 'Clínica' }
 ];
 
 function applyTheme(profile: ClinicProfile | null) {
@@ -60,9 +60,11 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
         {tab === 'pacientes' && <PatientsTab owner={owner} patientId={path.split('/')[3]} />}
         {tab === 'servicos' && <ServicesTab owner={owner} />}
         {tab === 'pacotes' && <PackagesTab owner={owner} />}
+        {tab === 'site' && profile &&
+          <SiteTab owner={owner} profile={profile} onSaved={p => { setProfile(p); applyTheme(p); }}
+                   onLogoChange={setProfile} />}
         {tab === 'clinica' && profile &&
-          <ClinicTab owner={owner} profile={profile} onSaved={p => { setProfile(p); applyTheme(p); }}
-                     onLogoChange={setProfile} />}
+          <ClinicTab owner={owner} profile={profile} onSaved={p => { setProfile(p); applyTheme(p); }} />}
       </main>
     </div>
   );
@@ -284,8 +286,8 @@ function PackagesTab({ owner }: { owner: boolean }) {
 
 // ---------- Clínica e aparência ----------
 
-function ClinicTab({ owner, profile, onSaved, onLogoChange }: {
-  owner: boolean; profile: ClinicProfile; onSaved: (p: ClinicProfile) => void; onLogoChange: (p: ClinicProfile) => void;
+function ClinicTab({ owner, profile, onSaved }: {
+  owner: boolean; profile: ClinicProfile; onSaved: (p: ClinicProfile) => void;
 }) {
   const [form, setForm] = useState<ClinicProfile>(profile);
   const [message, setMessage] = useState('');
@@ -306,14 +308,14 @@ function ClinicTab({ owner, profile, onSaved, onLogoChange }: {
   }
 
   const publicUrl = `${window.location.origin}/c/${form.slug}`;
-  const accentContrast = contrastRatio(form.colorAccent, readableTextOn(form.colorAccent));
 
   return (
     <section>
-      <h2>Clínica e aparência</h2>
+      <h2>Clínica</h2>
+      <p className="muted">Logo, cores, fotos e textos do site ficam na aba <a href="/painel/site" onClick={e => { e.preventDefault(); navigate('/painel/site'); }}>Site</a>.</p>
       <form className="card form" onSubmit={save}>
         <fieldset disabled={!owner}>
-          <h3>Dados que aparecem na página pública</h3>
+          <h3>Dados da clínica</h3>
           <label>Nome da clínica<input required maxLength={120} value={text('displayName')}
                                        onChange={e => set('displayName', e.target.value)} /></label>
           <div className="row">
@@ -328,31 +330,6 @@ function ClinicTab({ owner, profile, onSaved, onLogoChange }: {
                                                                      onChange={e => set('document', e.target.value)} /></label>
           </div>
           <label>Endereço<input maxLength={255} value={text('address')} onChange={e => set('address', e.target.value)} /></label>
-          <label>Sobre<textarea maxLength={1000} value={text('about')} onChange={e => set('about', e.target.value)} /></label>
-
-          <LogoSection owner={owner} profile={profile} onLogoChange={onLogoChange}
-                       current={{ primary: form.colorPrimary, secondary: form.colorSecondary, accent: form.colorAccent }}
-                       onPick={t => setForm({ ...form, colorPrimary: t.primary, colorSecondary: t.secondary, colorAccent: t.accent })} />
-
-          <h3>Cores</h3>
-          <p className="muted small">Escolha uma sugestão da logo acima ou ajuste à mão. A prévia mostra como fica.</p>
-          <div className="row colors">
-            <label>Principal<input type="color" value={form.colorPrimary} onChange={e => set('colorPrimary', e.target.value)} /></label>
-            <label>Secundária<input type="color" value={form.colorSecondary} onChange={e => set('colorSecondary', e.target.value)} /></label>
-            <label>Destaque<input type="color" value={form.colorAccent} onChange={e => set('colorAccent', e.target.value)} /></label>
-          </div>
-          <div className="preview" style={themeVariables({
-            primary: form.colorPrimary, secondary: form.colorSecondary, accent: form.colorAccent
-          }) as CSSProperties}>
-            <div className="preview-hero">
-              {profile.logoVersion && <span className="preview-logo"><img src={logoUrl(profile.logoVersion)!} alt="" /></span>}
-              {form.displayName || 'Sua clínica'}
-            </div>
-            <button type="button" className="preview-cta">Agendar</button>
-          </div>
-          {accentContrast < 4.5 && <p className="notice small">Essa cor de destaque tem pouco contraste com o texto.</p>}
-
-          <SiteSection form={form} set={patch => setForm({ ...form, ...patch })} />
 
           <h3>Página pública</h3>
           <label>Endereço da página

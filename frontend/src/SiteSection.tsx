@@ -30,7 +30,7 @@ export function SiteSection({ form, set }: {
   return (
     <div className="site-section">
       {fontIds.map(id => <FontLoader key={id} id={id} />)}
-      <h3>Site</h3>
+      <h3>Estilo</h3>
       <p className="muted small">
         O site é montado com a sua logo, as cores e os serviços cadastrados. Escolha a personalidade dele:
       </p>
