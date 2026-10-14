@@ -12,7 +12,9 @@ quantidade de sessões. Planejamento completo no Trello: **Fisio SaaS | Descober
 - Painel admin:
   - **Serviços**: nome, descrição, duração, preço opcional, "mostrar preço no site", "permitir agendamento online".
   - **Pacotes**: serviço, nº de sessões, preço opcional (mostra valor por sessão), validade, exibição do preço.
-  - **Clínica e aparência**: dados públicos, cores do tema com prévia e alerta de contraste, endereço da página.
+  - **Clínica e aparência**: dados públicos, **logo** (PNG, JPG, WebP ou SVG, convertida para PNG no navegador) com
+    **cores sugeridas a partir da logo** (até 4 paletas legíveis), cores do tema com prévia e alerta de contraste,
+    endereço da página.
 - **Pacientes**: nome, WhatsApp, nascimento, CPF opcional (validado, para recibo) e observações administrativas;
   busca por nome sem acento. Sem dados clínicos até confirmar regras do COFFITO e da LGPD.
 - **Agenda** (dia e semana): sessões avulsas com duração do serviço, status (agendada, confirmada, realizada,
@@ -31,7 +33,9 @@ quantidade de sessões. Planejamento completo no Trello: **Fisio SaaS | Descober
 - **Confirmação pelo WhatsApp** (link `wa.me`, custo zero): botão "Pedir confirmação" nas sessões agendadas com a
   mensagem pronta ("Olá, Maria! Confirmando sua sessão de Pilates amanhã (qui, 15/10) às 8h. Responda SIM…") e
   **Lembretes de amanhã**, que abre um paciente por vez.
-- Página pública `/c/{slug}`: vitrine com as cores da clínica; preço só aparece se a clínica permitir
+- Página pública `/c/{slug}`: site da clínica montado a partir da logo e das cores dela: logo em destaque no topo
+  (cartão branco, funciona com qualquer fundo), barra fixa com a logo e o WhatsApp sempre à mão, rodapé com contato,
+  ícone da aba = logo; sem logo, mostra as iniciais. Vitrine de serviços; preço só aparece se a clínica permitir
   ("Valor sob consulta" caso contrário); botão "Agendar pelo WhatsApp" com a escolha já escrita.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos).
 
@@ -60,7 +64,7 @@ primeiro login.
 
 ```bash
 cd backend && mvn verify      # integração com PostgreSQL real (banco fisio_test) + Flyway
-cd frontend && npm test       # tema, CPF/telefone, datas, recorrência e mensagens do WhatsApp
+cd frontend && npm test       # tema, paletas da logo, CPF/telefone, datas, recorrência e mensagens
 ```
 
 Cobertura atual: login e sessão, CSRF obrigatório, isolamento entre clínicas (ler, alterar, desativar,
@@ -71,7 +75,8 @@ conflito pela API e pelo banco, bloqueio, remarcação, realizada/falta só depo
 recorrência (datas geradas, conflitos listados sem criar nada, pular conflitos, bloqueio recorrente, cancelar
 próximas preservando realizadas, isolamento); pacotes (cópia do catálogo, consumo, reserva sem passar do saldo,
 regra da falta sem reescrever o passado, desfazer, venda depois de agendar, encerrar, pacote de outro paciente
-recusado pela API e pelo banco, isolamento, STAFF).
+recusado pela API e pelo banco, isolamento, STAFF); logo (tipo pela assinatura, tamanho e dimensões, SVG/GIF
+recusados, isolamento, vitrine desativada, STAFF).
 
 ## API
 
@@ -89,7 +94,8 @@ recusado pela API e pelo banco, isolamento, STAFF).
 | PUT | `/api/v1/appointments/{id}/package` (trocar pacote ou deixar avulsa) | OWNER |
 | GET · POST | `/api/v1/patients/{id}/packages` (saldo · vender) | logado · OWNER |
 | PUT · DELETE `/{id}` · GET `/low-balance` | `/api/v1/patient-packages` | OWNER · logado |
-| GET | `/api/v1/public/clinics/{slug}` | público |
+| POST · GET · DELETE | `/api/v1/clinic/logo` | OWNER · logado · OWNER |
+| GET | `/api/v1/public/clinics/{slug}` · `/api/v1/public/clinics/{slug}/logo` | público |
 
 ## Produção (Oracle Cloud Always Free)
 
@@ -112,5 +118,4 @@ docker compose -f docker-compose.prod.yml up -d --build
 ## Próximos passos (ordem sugerida)
 
 1. Pagamentos: maquininhas e taxas (bruto/taxa/líquido) e Pix com QR Code + comprovante.
-2. Logo com cores sugeridas automaticamente.
-3. Agendamento online na vitrine (solicitação → pagamento → confirmação).
+2. Agendamento online na vitrine (solicitação → pagamento → confirmação).

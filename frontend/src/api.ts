@@ -6,7 +6,7 @@ export type ClinicProfile = {
   id: string; slug: string; displayName: string; professionalName: string | null; crefito: string | null;
   document: string | null; whatsapp: string | null; address: string | null; about: string | null;
   colorPrimary: string; colorSecondary: string; colorAccent: string; publicPageEnabled: boolean;
-  noShowConsumesSession: boolean;
+  noShowConsumesSession: boolean; logoVersion: number | null;
 };
 
 export type Service = {
@@ -49,7 +49,8 @@ export type PublicService = {
 };
 export type PublicClinic = {
   slug: string; displayName: string; professionalName: string | null; crefito: string | null;
-  whatsapp: string | null; address: string | null; about: string | null; theme: Theme; services: PublicService[];
+  whatsapp: string | null; address: string | null; about: string | null; theme: Theme; logoVersion: number | null;
+  services: PublicService[];
 };
 
 async function csrf(): Promise<string> {
@@ -107,6 +108,21 @@ export async function signIn(email: string, password: string): Promise<void> {
   });
   if (res.status === 401) throw new Error('E-mail ou senha incorretos.');
   await handle<unknown>(res);
+}
+
+/** Envia a logo (PNG já preparado no navegador) com o token CSRF. */
+export async function uploadLogo(png: Blob): Promise<void> {
+  const form = new FormData();
+  form.append('file', png, 'logo.png');
+  const res = await fetch('/api/v1/clinic/logo', {
+    method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': await csrf() }, body: form
+  });
+  await handle<void>(res);
+}
+
+export function logoUrl(logoVersion: number | null | undefined, slug?: string): string | null {
+  if (!logoVersion) return null;
+  return (slug ? `/api/v1/public/clinics/${slug}/logo` : '/api/v1/clinic/logo') + `?v=${logoVersion}`;
 }
 
 export function signOut(): Promise<void> {

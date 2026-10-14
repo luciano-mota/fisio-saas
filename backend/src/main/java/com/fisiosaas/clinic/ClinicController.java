@@ -36,7 +36,9 @@ public class ClinicController {
         @Pattern(regexp = HEX, message = "cor inválida") String colorAccent,
         boolean publicPageEnabled,
         // Regra em aberto, por clínica: falta sem aviso consome sessão do pacote? (padrão: não)
-        Boolean noShowConsumesSession) {}
+        Boolean noShowConsumesSession,
+        // Muda quando a logo é trocada (só leitura): o painel usa em /api/v1/clinic/logo?v=... para não pegar cache velho.
+        Long logoVersion) {}
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
@@ -73,12 +75,16 @@ public class ClinicController {
     }
 
     private ClinicProfile load(UUID clinicId) {
-        return jdbc.queryForObject("SELECT * FROM clinics WHERE id = ?", (rs, row) -> new ClinicProfile(
+        return jdbc.queryForObject("""
+                SELECT c.*, (SELECT (extract(epoch FROM l.updated_at) * 1000)::bigint FROM clinic_logos l
+                              WHERE l.clinic_id = c.id) AS logo_version
+                  FROM clinics c WHERE c.id = ?""", (rs, row) -> new ClinicProfile(
             rs.getObject("id", UUID.class), rs.getString("slug"), rs.getString("display_name"),
             rs.getString("professional_name"), rs.getString("crefito"), rs.getString("document"),
             rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
             rs.getString("color_primary"), rs.getString("color_secondary"), rs.getString("color_accent"),
-            rs.getBoolean("public_page_enabled"), rs.getBoolean("no_show_consumes_session")), clinicId);
+            rs.getBoolean("public_page_enabled"), rs.getBoolean("no_show_consumes_session"),
+            (Long) rs.getObject("logo_version")), clinicId);
     }
 
     static String blankToNull(String value) {

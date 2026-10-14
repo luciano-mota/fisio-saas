@@ -30,7 +30,7 @@ public class PublicCatalogController {
 
     public record PublicClinic(String slug, String displayName, String professionalName, String crefito,
                                String whatsapp, String address, String about, Theme theme,
-                               List<PublicService> services) {}
+                               Long logoVersion, List<PublicService> services) {}
 
     private final JdbcTemplate jdbc;
 
@@ -41,12 +41,15 @@ public class PublicCatalogController {
     @GetMapping("/{slug}")
     public ResponseEntity<PublicClinic> clinic(@PathVariable String slug) {
         record Row(UUID id, PublicClinic base) {}
-        Row clinic = jdbc.query("SELECT * FROM clinics WHERE slug = ? AND public_page_enabled",
+        Row clinic = jdbc.query("""
+                SELECT c.*, (SELECT (extract(epoch FROM l.updated_at) * 1000)::bigint FROM clinic_logos l
+                              WHERE l.clinic_id = c.id) AS logo_version
+                  FROM clinics c WHERE c.slug = ? AND c.public_page_enabled""",
             (rs, n) -> new Row(rs.getObject("id", UUID.class), new PublicClinic(
                 rs.getString("slug"), rs.getString("display_name"), rs.getString("professional_name"),
                 rs.getString("crefito"), rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
                 new Theme(rs.getString("color_primary"), rs.getString("color_secondary"),
-                    rs.getString("color_accent")), List.of())),
+                    rs.getString("color_accent")), (Long) rs.getObject("logo_version"), List.of())),
             slug.toLowerCase(Locale.ROOT)).stream().findFirst().orElseThrow(NoSuchElementException::new);
 
         List<PublicService> services = jdbc.query("""
@@ -62,7 +65,7 @@ public class PublicCatalogController {
 
         PublicClinic base = clinic.base();
         PublicClinic body = new PublicClinic(base.slug(), base.displayName(), base.professionalName(),
-            base.crefito(), base.whatsapp(), base.address(), base.about(), base.theme(), services);
+            base.crefito(), base.whatsapp(), base.address(), base.about(), base.theme(), base.logoVersion(), services);
         return ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(body);
     }
 

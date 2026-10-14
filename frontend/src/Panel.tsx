@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
-import { api, money, signOut, type ClinicProfile, type Me, type Service, type SessionPackage } from './api';
+import { api, logoUrl, money, signOut, type ClinicProfile, type Me, type Service, type SessionPackage } from './api';
 import { contrastRatio, readableTextOn, themeVariables } from './color';
 import { AgendaTab } from './Agenda';
+import { LogoSection } from './LogoSection';
 import { PatientsTab } from './Patients';
 import { navigate, usePath } from './router';
 
@@ -40,6 +41,7 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
   return (
     <div className="panel">
       <header className="topbar">
+        {profile?.logoVersion && <img className="topbar-logo" src={logoUrl(profile.logoVersion)!} alt="" />}
         <strong>{profile?.displayName ?? me.clinicName}</strong>
         <span className="muted small">{me.email}</span>
         <button className="link" onClick={logout}>Sair</button>
@@ -58,7 +60,8 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
         {tab === 'servicos' && <ServicesTab owner={owner} />}
         {tab === 'pacotes' && <PackagesTab owner={owner} />}
         {tab === 'clinica' && profile &&
-          <ClinicTab owner={owner} profile={profile} onSaved={p => { setProfile(p); applyTheme(p); }} />}
+          <ClinicTab owner={owner} profile={profile} onSaved={p => { setProfile(p); applyTheme(p); }}
+                     onLogoChange={setProfile} />}
       </main>
     </div>
   );
@@ -280,8 +283,8 @@ function PackagesTab({ owner }: { owner: boolean }) {
 
 // ---------- Clínica e aparência ----------
 
-function ClinicTab({ owner, profile, onSaved }: {
-  owner: boolean; profile: ClinicProfile; onSaved: (p: ClinicProfile) => void;
+function ClinicTab({ owner, profile, onSaved, onLogoChange }: {
+  owner: boolean; profile: ClinicProfile; onSaved: (p: ClinicProfile) => void; onLogoChange: (p: ClinicProfile) => void;
 }) {
   const [form, setForm] = useState<ClinicProfile>(profile);
   const [message, setMessage] = useState('');
@@ -326,8 +329,12 @@ function ClinicTab({ owner, profile, onSaved }: {
           <label>Endereço<input maxLength={255} value={text('address')} onChange={e => set('address', e.target.value)} /></label>
           <label>Sobre<textarea maxLength={1000} value={text('about')} onChange={e => set('about', e.target.value)} /></label>
 
+          <LogoSection owner={owner} profile={profile} onLogoChange={onLogoChange}
+                       current={{ primary: form.colorPrimary, secondary: form.colorSecondary, accent: form.colorAccent }}
+                       onPick={t => setForm({ ...form, colorPrimary: t.primary, colorSecondary: t.secondary, colorAccent: t.accent })} />
+
           <h3>Cores</h3>
-          <p className="muted small">Em breve: suba sua logo e as cores serão sugeridas a partir dela.</p>
+          <p className="muted small">Escolha uma sugestão da logo acima ou ajuste à mão. A prévia mostra como fica.</p>
           <div className="row colors">
             <label>Principal<input type="color" value={form.colorPrimary} onChange={e => set('colorPrimary', e.target.value)} /></label>
             <label>Secundária<input type="color" value={form.colorSecondary} onChange={e => set('colorSecondary', e.target.value)} /></label>
@@ -336,7 +343,10 @@ function ClinicTab({ owner, profile, onSaved }: {
           <div className="preview" style={themeVariables({
             primary: form.colorPrimary, secondary: form.colorSecondary, accent: form.colorAccent
           }) as CSSProperties}>
-            <div className="preview-hero">{form.displayName || 'Sua clínica'}</div>
+            <div className="preview-hero">
+              {profile.logoVersion && <span className="preview-logo"><img src={logoUrl(profile.logoVersion)!} alt="" /></span>}
+              {form.displayName || 'Sua clínica'}
+            </div>
             <button type="button" className="preview-cta">Agendar</button>
           </div>
           {accentContrast < 4.5 && <p className="notice small">Essa cor de destaque tem pouco contraste com o texto.</p>}
