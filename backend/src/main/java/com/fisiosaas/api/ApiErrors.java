@@ -36,8 +36,13 @@ public class ApiErrors {
         return ResponseEntity.badRequest().body(Map.of("error", message));
     }
 
+    @ExceptionHandler(ConflictException.class)
+    ResponseEntity<Map<String, String>> conflict(ConflictException error) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", error.getMessage()));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
-    ResponseEntity<Map<String, String>> conflict(DataIntegrityViolationException error) {
+    ResponseEntity<Map<String, String>> integrity(DataIntegrityViolationException error) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(Map.of("error", "Já existe um cadastro com esses dados ou há referência inválida"));
     }

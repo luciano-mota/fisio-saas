@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { api, money, signOut, type ClinicProfile, type Me, type Service, type SessionPackage } from './api';
 import { contrastRatio, readableTextOn, themeVariables } from './color';
+import { AgendaTab } from './Agenda';
 import { PatientsTab } from './Patients';
 import { navigate, usePath } from './router';
 
-type Tab = 'pacientes' | 'servicos' | 'pacotes' | 'clinica';
+type Tab = 'agenda' | 'pacientes' | 'servicos' | 'pacotes' | 'clinica';
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'agenda', label: 'Agenda' },
   { id: 'pacientes', label: 'Pacientes' },
   { id: 'servicos', label: 'Serviços' },
   { id: 'pacotes', label: 'Pacotes' },
@@ -51,6 +53,7 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
       </nav>
       <main className="content">
         {!owner && <p className="notice">Você está como colaborador: pode consultar, mas só a responsável altera.</p>}
+        {tab === 'agenda' && <AgendaTab owner={owner} />}
         {tab === 'pacientes' && <PatientsTab owner={owner} />}
         {tab === 'servicos' && <ServicesTab owner={owner} />}
         {tab === 'pacotes' && <PackagesTab owner={owner} />}
