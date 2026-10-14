@@ -1,0 +1,16 @@
+# Desenvolvimento local: só o PostgreSQL. Rode o backend com `mvn spring-boot:run`
+# e o frontend com `npm run dev` (proxy de /api para a porta 8080).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: fisio
+      POSTGRES_USER: fisio
+      POSTGRES_PASSWORD: fisio_dev_only
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+volumes:
+  pgdata:

@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    url: ${TEST_DATABASE_URL:jdbc:postgresql://localhost:5432/fisio_test}
+    username: ${DATABASE_USER:fisio}
+    password: ${DATABASE_PASSWORD:fisio_dev_only}
+  flyway:
+    clean-disabled: false

@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: fisio-saas
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/fisio}
+    username: ${DATABASE_USER:fisio}
+    password: ${DATABASE_PASSWORD:fisio_dev_only}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
