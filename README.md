@@ -19,6 +19,9 @@ quantidade de sessões. Planejamento completo no Trello: **Fisio SaaS | Descober
   falta, cancelada), remarcação guardando o horário original, bloqueio de horários (almoço, folga).
   **Sem conflito de horário** na mesma clínica, garantido pelo banco (constraint de exclusão com `btree_gist`).
   Horários no fuso da clínica (padrão `America/Fortaleza`).
+  **Recorrência** de sessões e bloqueios (ex.: seg/qua/sex às 8h por 5 semanas; almoço de segunda a sexta), com
+  prévia das datas; se algum dia estiver ocupado, nada é criado e a tela lista os conflitos e oferece pular esses
+  dias. "Cancelar próximas" encerra a série sem mexer no que já aconteceu.
 - Página pública `/c/{slug}`: vitrine com as cores da clínica; preço só aparece se a clínica permitir
   ("Valor sob consulta" caso contrário); botão "Agendar pelo WhatsApp" com a escolha já escrita.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos).
@@ -55,7 +58,9 @@ Cobertura atual: login e sessão, CSRF obrigatório, isolamento entre clínicas 
 pacote com serviço de outra clínica), permissão OWNER x STAFF, vitrine escondendo preço, página
 desativada, validação de cores, WhatsApp só com dígitos, preço negativo, bloqueio de login; pacientes (busca sem
 acento, CPF inválido/repetido, isolamento entre clínicas, STAFF só consulta, desativar e reativar); agenda (fuso,
-conflito pela API e pelo banco, bloqueio, remarcação, realizada/falta só depois do horário, isolamento, STAFF).
+conflito pela API e pelo banco, bloqueio, remarcação, realizada/falta só depois do horário, isolamento, STAFF);
+recorrência (datas geradas, conflitos listados sem criar nada, pular conflitos, bloqueio recorrente, cancelar
+próximas preservando realizadas, isolamento).
 
 ## API
 
@@ -69,6 +74,7 @@ conflito pela API e pelo banco, bloqueio, remarcação, realizada/falta só depo
 | GET `?q=&includeInactive=` · POST · GET `/{id}` · PUT `/{id}` · DELETE `/{id}` | `/api/v1/patients` | logado · OWNER |
 | GET `?from=&to=&includeCanceled=` · POST · GET `/{id}` · PUT `/{id}` (remarcar) · DELETE `/{id}` (cancelar) | `/api/v1/appointments` | logado · OWNER |
 | POST | `/api/v1/appointments/{id}/status` · `/api/v1/blocks` | OWNER |
+| POST · DELETE `/{id}?from=` (cancelar próximas) | `/api/v1/appointments/series` | OWNER |
 | GET | `/api/v1/public/clinics/{slug}` | público |
 
 ## Produção (Oracle Cloud Always Free)
@@ -91,7 +97,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Próximos passos (ordem sugerida)
 
-1. Sessões recorrentes, venda de pacote e saldo de sessões, confirmação pelo WhatsApp.
+1. Venda de pacote e saldo de sessões, confirmação pelo WhatsApp.
 2. Pagamentos: maquininhas e taxas (bruto/taxa/líquido) e Pix com QR Code + comprovante.
 3. Logo com cores sugeridas automaticamente.
 4. Agendamento online na vitrine (solicitação → pagamento → confirmação).

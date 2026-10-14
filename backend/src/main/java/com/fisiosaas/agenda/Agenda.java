@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,7 +34,8 @@ public class Agenda {
 
     public record AppointmentView(UUID id, String kind, UUID patientId, String patientName, String patientWhatsapp,
                                   UUID serviceId, String serviceName, LocalDateTime startsAt, LocalDateTime endsAt,
-                                  String status, String notes, LocalDateTime originalStartsAt, int rescheduleCount) {}
+                                  String status, String notes, LocalDateTime originalStartsAt, int rescheduleCount,
+                                  UUID seriesId) {}
 
     private static final String SELECT = """
         SELECT a.*, p.full_name AS patient_name, p.whatsapp AS patient_whatsapp, s.name AS service_name
@@ -75,8 +77,15 @@ public class Agenda {
      * o que cobre dois cliques simultâneos.
      */
     public void requireFree(UUID clinicId, Slot slot, UUID ignoreId) {
+        conflictWith(clinicId, slot, ignoreId).ifPresent(conflict -> {
+            throw new ConflictException("Horário ocupado: conflita com " + conflict);
+        });
+    }
+
+    /** Descreve o primeiro compromisso que ocupa o horário (ex.: "sessão de Maria em 07/01 às 08:00"). */
+    public Optional<String> conflictWith(UUID clinicId, Slot slot, UUID ignoreId) {
         ZoneId zone = zone(clinicId);
-        List<String> conflicts = jdbc.query("""
+        return jdbc.query("""
                 SELECT a.kind, a.starts_at, a.notes, p.full_name FROM appointments a
                   LEFT JOIN patients p ON p.id = a.patient_id AND p.clinic_id = a.clinic_id
                  WHERE a.clinic_id = ? AND a.status <> 'CANCELED' AND a.id <> coalesce(?::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -88,8 +97,8 @@ public class Agenda {
                     ? "sessão de " + rs.getString("full_name") + " em " + when
                     : "horário bloqueado em " + when + (rs.getString("notes") == null ? "" : " (" + rs.getString("notes") + ")");
             },
-            clinicId, ignoreId, toInstant(slot.startsAt(), zone), toInstant(slot.endsAt(), zone));
-        if (!conflicts.isEmpty()) throw new ConflictException("Horário ocupado: conflita com " + conflicts.getFirst());
+            clinicId, ignoreId, toInstant(slot.startsAt(), zone), toInstant(slot.endsAt(), zone))
+            .stream().findFirst();
     }
 
     /** Executa a escrita traduzindo a violação da constraint de exclusão (corrida entre dois cliques) em 409. */
@@ -126,7 +135,8 @@ public class Agenda {
             local(rs.getObject("starts_at", OffsetDateTime.class), zone),
             local(rs.getObject("ends_at", OffsetDateTime.class), zone),
             rs.getString("status"), rs.getString("notes"),
-            original == null ? null : local(original, zone), rs.getInt("reschedule_count"));
+            original == null ? null : local(original, zone), rs.getInt("reschedule_count"),
+            rs.getObject("series_id", UUID.class));
     }
 
     private static LocalDateTime local(OffsetDateTime instant, ZoneId zone) {

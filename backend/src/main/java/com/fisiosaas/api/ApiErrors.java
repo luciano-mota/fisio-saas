@@ -37,8 +37,11 @@ public class ApiErrors {
     }
 
     @ExceptionHandler(ConflictException.class)
-    ResponseEntity<Map<String, String>> conflict(ConflictException error) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", error.getMessage()));
+    ResponseEntity<Map<String, Object>> conflict(ConflictException error) {
+        Map<String, Object> body = error.conflicts().isEmpty()
+            ? Map.of("error", error.getMessage())
+            : Map.of("error", error.getMessage(), "conflicts", error.conflicts());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

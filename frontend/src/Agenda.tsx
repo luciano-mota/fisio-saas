@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { api, type Appointment, type AppointmentStatus, type Patient, type Service } from './api';
+import { api, ApiError, type Appointment, type AppointmentStatus, type Patient, type Service } from './api';
 import { addDays, dateOf, dayLabel, minutesBetween, nowLocal, timeOf, today, weekStart } from './dates';
+import { isoWeekday, MAX_OCCURRENCES, seriesDates, WEEKDAYS } from './recurrence';
 
 export const STATUS_LABEL: Record<AppointmentStatus, string> = {
   SCHEDULED: 'Agendada', CONFIRMED: 'Confirmada', DONE: 'Realizada', NO_SHOW: 'Falta', CANCELED: 'Cancelada'
 };
 
 type View = 'dia' | 'semana';
+/** Repetição opcional (ex.: seg/qua/sex por 5 semanas). */
+type Repeat = { repeat: boolean; weekdays: number[]; limitMode: 'semanas' | 'vezes'; limit: string };
 type Form =
-  | { mode: 'sessao'; patientId: string; serviceId: string; date: string; time: string; duration: string; notes: string }
-  | { mode: 'bloqueio'; date: string; time: string; endTime: string; notes: string }
+  | ({ mode: 'sessao'; patientId: string; serviceId: string; date: string; time: string; duration: string; notes: string } & Repeat)
+  | ({ mode: 'bloqueio'; date: string; time: string; endTime: string; notes: string } & Repeat)
   | { mode: 'remarcar'; item: Appointment; date: string; time: string; duration: string; notes: string };
 
 /** Agenda do dia ou da semana, pensada para o celular. */
@@ -22,6 +25,7 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   const [services, setServices] = useState<Service[]>([]);
   const [form, setForm] = useState<Form | null>(null);
   const [error, setError] = useState('');
+  const [conflicts, setConflicts] = useState<string[]>([]);
 
   const from = view === 'dia' ? date : weekStart(date);
   const to = view === 'dia' ? date : addDays(from, 6);
@@ -40,12 +44,14 @@ export function AgendaTab({ owner }: { owner: boolean }) {
 
   async function run(action: () => Promise<unknown>) {
     setError('');
+    setConflicts([]);
     try {
       await action();
       await load();
       return true;
     } catch (e) {
       setError((e as Error).message);
+      if (e instanceof ApiError) setConflicts(e.conflicts);
       return false;
     }
   }
@@ -53,16 +59,37 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   const changeStatus = (item: Appointment, status: AppointmentStatus) =>
     run(() => api(`/api/v1/appointments/${item.id}/status`, 'POST', { status }));
 
+  async function cancelUpcoming(item: Appointment) {
+    const what = item.kind === 'BLOCK' ? 'os próximos bloqueios desta série' : `as próximas sessões de ${item.patientName} desta série`;
+    if (confirm(`Cancelar ${what}, a partir de ${dayLabel(item.startsAt)}? O que já foi realizado não muda.`)) {
+      await run(() => api(`/api/v1/appointments/series/${item.seriesId}?from=${dateOf(item.startsAt)}`, 'DELETE'));
+    }
+  }
+
   async function cancel(item: Appointment) {
     const what = item.kind === 'BLOCK' ? 'Remover este bloqueio de horário?' : `Cancelar a sessão de ${item.patientName}?`;
     if (confirm(what)) await run(() => api(`/api/v1/appointments/${item.id}`, 'DELETE'));
   }
 
-  async function save(event: FormEvent) {
-    event.preventDefault();
+  async function save(event: FormEvent | null, skipConflicts = false) {
+    event?.preventDefault();
     if (!form) return;
     const startsAt = `${form.date}T${form.time}`;
     const ok = await run(() => {
+      if (form.mode !== 'remarcar' && form.repeat) {
+        const block = form.mode === 'bloqueio';
+        return api('/api/v1/appointments/series', 'POST', {
+          kind: block ? 'BLOCK' : 'SESSION',
+          patientId: block ? null : form.patientId, serviceId: block ? null : form.serviceId,
+          startDate: form.date, startTime: form.time,
+          durationMinutes: block ? minutesBetween(startsAt, `${form.date}T${form.endTime}`)
+            : form.duration ? Number(form.duration) : null,
+          weekdays: form.weekdays,
+          weeks: form.limitMode === 'semanas' ? Number(form.limit) : null,
+          occurrences: form.limitMode === 'vezes' ? Number(form.limit) : null,
+          notes: form.notes || null, skipConflicts
+        });
+      }
       if (form.mode === 'sessao') {
         return api('/api/v1/appointments', 'POST', {
           patientId: form.patientId, serviceId: form.serviceId, startsAt,
@@ -88,6 +115,7 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   }, [view, date, from, items]);
 
   const step = view === 'dia' ? 1 : 7;
+  const noRepeat = (day: string): Repeat => ({ repeat: false, weekdays: [isoWeekday(day)], limitMode: 'semanas', limit: '4' });
   const now = nowLocal();
 
   return (
@@ -111,14 +139,16 @@ export function AgendaTab({ owner }: { owner: boolean }) {
         <div className="actions">
           <button className="primary" disabled={services.length === 0}
                   onClick={() => setForm({ mode: 'sessao', patientId: '', serviceId: services[0]?.id ?? '', date,
-                    time: '08:00', duration: '', notes: '' })}>+ Sessão</button>
-          <button onClick={() => setForm({ mode: 'bloqueio', date, time: '12:00', endTime: '14:00', notes: '' })}>
+                    time: '08:00', duration: '', notes: '', ...noRepeat(date) })}>+ Sessão</button>
+          <button onClick={() => setForm({ mode: 'bloqueio', date, time: '12:00', endTime: '14:00', notes: '', ...noRepeat(date) })}>
             Bloquear horário</button>
         </div>
       )}
       {owner && services.length === 0 && <p className="notice small">Cadastre um serviço para poder agendar sessões.</p>}
       {owner && form && <AgendaForm form={form} setForm={setForm} patients={patients} services={services}
-                                    onSubmit={save} onCancel={() => { setForm(null); setError(''); }} error={error} />}
+                                    onSubmit={e => save(e)} onSkipConflicts={() => save(null, true)}
+                                    onCancel={() => { setForm(null); setError(''); setConflicts([]); }}
+                                    error={error} conflicts={conflicts} />}
       {!form && error && <p className="error" role="alert">{error}</p>}
 
       <label className="check small agenda-filter"><input type="checkbox" checked={showCanceled}
@@ -134,6 +164,7 @@ export function AgendaTab({ owner }: { owner: boolean }) {
             {dayItems.map(item => (
               <AgendaItem key={item.id} item={item} owner={owner} started={item.startsAt.slice(0, 16) <= now}
                           onStatus={s => changeStatus(item, s)} onCancel={() => cancel(item)}
+                          onCancelUpcoming={() => cancelUpcoming(item)}
                           onReschedule={() => setForm({
                             mode: 'remarcar', item, date: dateOf(item.startsAt), time: timeOf(item.startsAt),
                             duration: String(minutesBetween(item.startsAt, item.endsAt)), notes: item.notes ?? ''
@@ -146,9 +177,9 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   );
 }
 
-function AgendaItem({ item, owner, started, onStatus, onCancel, onReschedule }: {
+function AgendaItem({ item, owner, started, onStatus, onCancel, onCancelUpcoming, onReschedule }: {
   item: Appointment; owner: boolean; started: boolean;
-  onStatus: (s: AppointmentStatus) => void; onCancel: () => void; onReschedule: () => void;
+  onStatus: (s: AppointmentStatus) => void; onCancel: () => void; onCancelUpcoming: () => void; onReschedule: () => void;
 }) {
   const time = `${timeOf(item.startsAt)}–${timeOf(item.endsAt)}`;
   if (item.kind === 'BLOCK') {
@@ -158,7 +189,8 @@ function AgendaItem({ item, owner, started, onStatus, onCancel, onReschedule }: 
           {item.status === 'CANCELED' && <span className="tag">removido</span>}</div>
         {owner && item.status !== 'CANCELED' && (
           <div className="actions"><button onClick={onReschedule}>Alterar</button>
-            <button className="danger" onClick={onCancel}>Remover</button></div>
+            <button className="danger" onClick={onCancel}>Remover</button>
+            {item.seriesId && <button className="danger" onClick={onCancelUpcoming}>Remover próximos</button>}</div>
         )}
       </li>
     );
@@ -167,7 +199,7 @@ function AgendaItem({ item, owner, started, onStatus, onCancel, onReschedule }: 
   return (
     <li className={item.status === 'CANCELED' ? 'item inactive' : 'item'}>
       <div>
-        <strong>{time}</strong> · {item.patientName}
+        <strong>{time}</strong> · {item.patientName}{item.seriesId && <span title="Sessão recorrente"> ↻</span>}
         <span className={`status status-${item.status.toLowerCase()}`}>{STATUS_LABEL[item.status]}</span>
         <div className="muted small">
           {item.serviceName}
@@ -182,6 +214,7 @@ function AgendaItem({ item, owner, started, onStatus, onCancel, onReschedule }: 
           {open && started && <button onClick={() => onStatus('NO_SHOW')}>Falta</button>}
           {open && <button onClick={onReschedule}>Remarcar</button>}
           {open && <button className="danger" onClick={onCancel}>Cancelar</button>}
+          {open && item.seriesId && <button className="danger" onClick={onCancelUpcoming}>Cancelar próximas</button>}
           {(item.status === 'DONE' || item.status === 'NO_SHOW') &&
             <button onClick={() => onStatus('CONFIRMED')}>Desfazer</button>}
           {item.status === 'CANCELED' && <button onClick={() => onStatus('SCHEDULED')}>Reativar</button>}
@@ -191,15 +224,21 @@ function AgendaItem({ item, owner, started, onStatus, onCancel, onReschedule }: 
   );
 }
 
-function AgendaForm({ form, setForm, patients, services, onSubmit, onCancel, error }: {
+function AgendaForm({ form, setForm, patients, services, onSubmit, onSkipConflicts, onCancel, error, conflicts }: {
   form: Form; setForm: (f: Form) => void; patients: Patient[]; services: Service[];
-  onSubmit: (e: FormEvent) => void; onCancel: () => void; error: string;
+  onSubmit: (e: FormEvent) => void; onSkipConflicts: () => void; onCancel: () => void; error: string; conflicts: string[];
 }) {
   const [search, setSearch] = useState('');
   const set = (patch: Partial<Form>) => setForm({ ...form, ...patch } as Form);
   const fold = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const shown = patients.filter(p => fold(p.fullName).includes(fold(search)));
   const service = form.mode === 'sessao' ? services.find(s => s.id === form.serviceId) : undefined;
+  // O dia da semana pré-marcado na repetição acompanha a data enquanto a pessoa não escolher outros dias.
+  const changeDate = (date: string) => {
+    if (form.mode === 'remarcar' || !date) return set({ date });
+    const untouched = form.weekdays.length === 1 && form.weekdays[0] === isoWeekday(form.date);
+    set(untouched ? { date, weekdays: [isoWeekday(date)] } : { date });
+  };
 
   return (
     <form className="card form" onSubmit={onSubmit}>
@@ -227,7 +266,7 @@ function AgendaForm({ form, setForm, patients, services, onSubmit, onCancel, err
       )}
 
       <div className="row">
-        <label>Data<input type="date" required value={form.date} onChange={e => set({ date: e.target.value })} /></label>
+        <label>Data<input type="date" required value={form.date} onChange={e => changeDate(e.target.value)} /></label>
         <label>{form.mode === 'bloqueio' ? 'Das' : 'Horário'}
           <input type="time" required value={form.time} onChange={e => set({ time: e.target.value })} /></label>
         {form.mode === 'bloqueio' ? (
@@ -243,11 +282,63 @@ function AgendaForm({ form, setForm, patients, services, onSubmit, onCancel, err
         <input maxLength={500} value={form.notes} placeholder={form.mode === 'bloqueio' ? 'Ex.: almoço, folga' : ''}
                onChange={e => set({ notes: e.target.value })} /></label>
 
+      {form.mode !== 'remarcar' && <RepeatFields form={form} set={set} />}
+
       {error && <p className="error" role="alert">{error}</p>}
+      {conflicts.length > 0 && (
+        <div className="notice small">
+          <ul className="conflicts">{conflicts.map(c => <li key={c}>{c}</li>)}</ul>
+          <button type="button" onClick={onSkipConflicts}>Agendar pulando esses dias</button>
+        </div>
+      )}
       <div className="actions">
         <button className="primary">{form.mode === 'remarcar' ? 'Salvar' : form.mode === 'bloqueio' ? 'Bloquear' : 'Agendar'}</button>
         <button type="button" onClick={onCancel}>Voltar</button>
       </div>
     </form>
+  );
+}
+
+function RepeatFields({ form, set }: { form: Form & Repeat; set: (patch: Partial<Form>) => void }) {
+  const dates = form.repeat
+    ? seriesDates(form.date, form.weekdays, form.limitMode === 'semanas' ? Number(form.limit) : undefined,
+      form.limitMode === 'vezes' ? Number(form.limit) : undefined)
+    : [];
+  const toggle = (iso: number) => set({
+    weekdays: form.weekdays.includes(iso) ? form.weekdays.filter(d => d !== iso) : [...form.weekdays, iso].sort()
+  });
+  const noun = form.mode === 'bloqueio' ? 'bloqueios' : 'sessões';
+
+  return (
+    <fieldset className="repeat">
+      <label className="check"><input type="checkbox" checked={form.repeat}
+                                      onChange={e => set({ repeat: e.target.checked })} /> Repetir</label>
+      {form.repeat && (
+        <>
+          <div className="weekdays" role="group" aria-label="Dias da semana">
+            {WEEKDAYS.map(d => (
+              <button type="button" key={d.iso} aria-pressed={form.weekdays.includes(d.iso)}
+                      className={form.weekdays.includes(d.iso) ? 'chip on' : 'chip'} onClick={() => toggle(d.iso)}>
+                {d.label}</button>
+            ))}
+          </div>
+          <div className="repeat-limit">
+            <span>Por</span>
+            <input type="number" min={1} max={form.limitMode === 'semanas' ? 52 : MAX_OCCURRENCES} required
+                   value={form.limit} onChange={e => set({ limit: e.target.value })} aria-label="Quantidade" />
+            <select value={form.limitMode} aria-label="Unidade"
+                    onChange={e => set({ limitMode: e.target.value as Repeat['limitMode'] })}>
+              <option value="semanas">semanas</option>
+              <option value="vezes">{noun}</option>
+            </select>
+          </div>
+          <p className="muted small" aria-live="polite">
+            {dates.length === 0 ? 'Escolha os dias da semana.'
+              : dates.length > MAX_OCCURRENCES ? `Passa de ${MAX_OCCURRENCES} ${noun}; diminua o período.`
+                : `${dates.length} ${noun}, de ${dayLabel(dates[0])} a ${dayLabel(dates[dates.length - 1])}.`}
+          </p>
+        </>
+      )}
+    </fieldset>
   );
 }

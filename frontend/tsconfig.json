@@ -10,7 +10,7 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "allowImportingTsExtensions": false,
+    "allowImportingTsExtensions": true,
     "isolatedModules": true
   },
   "include": ["src"]
