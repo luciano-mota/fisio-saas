@@ -118,3 +118,20 @@ a.button {
   background: var(--color-accent); color: var(--color-on-accent); margin-top: 6px;
 }
 .address { margin-top: 24px; }
+
+/* Agenda */
+.agenda-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.segmented button { border: 0; border-radius: 0; }
+.segmented button.active { background: var(--color-primary); color: var(--color-on-primary); }
+.date-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.date-nav strong { flex: 1; text-align: center; }
+.agenda-filter { margin: 12px 0 4px; }
+.agenda-day h3 { margin: 18px 0 0; }
+.agenda-day h3 .link { font-weight: 600; text-decoration: none; padding: 0; }
+.item.block { background: repeating-linear-gradient(45deg, #fff, #fff 8px, #f3f4f6 8px, #f3f4f6 16px); }
+.status { margin-left: 8px; font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--border); }
+.status-confirmed { background: #dbeafe; color: #1e3a8a; }
+.status-done { background: #dcfce7; color: #14532d; }
+.status-no_show { background: #fee2e2; color: #7f1d1d; }
+.status-canceled { background: #e5e7eb; color: #374151; }

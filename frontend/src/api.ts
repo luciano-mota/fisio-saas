@@ -23,6 +23,14 @@ export type Patient = {
   adminNotes: string | null; active: boolean;
 };
 
+export type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'DONE' | 'NO_SHOW' | 'CANCELED';
+export type Appointment = {
+  id: string; kind: 'SESSION' | 'BLOCK'; patientId: string | null; patientName: string | null;
+  patientWhatsapp: string | null; serviceId: string | null; serviceName: string | null;
+  startsAt: string; endsAt: string; status: AppointmentStatus; notes: string | null;
+  originalStartsAt: string | null; rescheduleCount: number;
+};
+
 export type PublicPackage = { id: string; name: string; sessionCount: number; price: number | null; validityDays: number | null };
 export type PublicService = {
   id: string; name: string; description: string | null; durationMinutes: number; price: number | null;
