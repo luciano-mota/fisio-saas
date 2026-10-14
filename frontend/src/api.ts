@@ -18,6 +18,11 @@ export type SessionPackage = {
   price: number | null; showPrice: boolean; validityDays: number | null; active: boolean;
 };
 
+export type Patient = {
+  id: string; fullName: string; cpf: string | null; whatsapp: string | null; birthDate: string | null;
+  adminNotes: string | null; active: boolean;
+};
+
 export type PublicPackage = { id: string; name: string; sessionCount: number; price: number | null; validityDays: number | null };
 export type PublicService = {
   id: string; name: string; description: string | null; durationMinutes: number; price: number | null;

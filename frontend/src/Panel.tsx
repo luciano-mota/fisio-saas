@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { api, money, signOut, type ClinicProfile, type Me, type Service, type SessionPackage } from './api';
 import { contrastRatio, readableTextOn, themeVariables } from './color';
+import { PatientsTab } from './Patients';
 import { navigate, usePath } from './router';
 
-type Tab = 'servicos' | 'pacotes' | 'clinica';
+type Tab = 'pacientes' | 'servicos' | 'pacotes' | 'clinica';
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'pacientes', label: 'Pacientes' },
   { id: 'servicos', label: 'Serviços' },
   { id: 'pacotes', label: 'Pacotes' },
   { id: 'clinica', label: 'Clínica e aparência' }
@@ -20,7 +22,7 @@ function applyTheme(profile: ClinicProfile | null) {
 
 export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const path = usePath();
-  const tab = (TABS.find(t => path === '/painel/' + t.id)?.id ?? 'servicos') as Tab;
+  const tab = (TABS.find(t => path === '/painel/' + t.id)?.id ?? TABS[0].id) as Tab;
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const owner = me.role === 'OWNER';
 
@@ -49,6 +51,7 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
       </nav>
       <main className="content">
         {!owner && <p className="notice">Você está como colaborador: pode consultar, mas só a responsável altera.</p>}
+        {tab === 'pacientes' && <PatientsTab owner={owner} />}
         {tab === 'servicos' && <ServicesTab owner={owner} />}
         {tab === 'pacotes' && <PackagesTab owner={owner} />}
         {tab === 'clinica' && profile &&

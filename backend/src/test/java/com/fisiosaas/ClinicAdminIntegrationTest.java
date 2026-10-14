@@ -7,47 +7,11 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class ClinicAdminIntegrationTest {
-    static final String OWNER_A = "ana@fisio-a.test";
-    static final String OWNER_B = "bia@fisio-b.test";
-    static final String STAFF_A = "recepcao@fisio-a.test";
-    static final String PASSWORD = "senha-forte-de-teste";
-
-    @Autowired MockMvc mvc;
-    @Autowired JdbcTemplate jdbc;
-    @Autowired PasswordEncoder passwords;
-    @Autowired ObjectMapper json;
-
-    UUID clinicA;
-    UUID clinicB;
-
-    @BeforeEach
-    void seed() {
-        jdbc.execute("TRUNCATE session_packages, services, users, clinics CASCADE");
-        clinicA = clinic("fisio-ana", "Fisio Ana", true);
-        clinicB = clinic("fisio-bia", "Fisio Bia", true);
-        insertUser(clinicA, OWNER_A, "OWNER");
-        insertUser(clinicA, STAFF_A, "STAFF");
-        insertUser(clinicB, OWNER_B, "OWNER");
-    }
+class ClinicAdminIntegrationTest extends IntegrationTest {
 
     @Test
     void loginComSenhaCorretaAbreSessaoEMeMostraAClinica() throws Exception {
@@ -180,31 +144,10 @@ class ClinicAdminIntegrationTest {
     }
 
     private String createService(String owner, String body) throws Exception {
-        return createAndReturnId("/api/v1/services", owner, body);
+        return create("/api/v1/services", owner, body);
     }
 
     private String createPackage(String owner, String body) throws Exception {
-        return createAndReturnId("/api/v1/packages", owner, body);
-    }
-
-    private String createAndReturnId(String url, String owner, String body) throws Exception {
-        String response = mvc.perform(post(url).with(user(owner)).with(csrf())
-                .contentType(MediaType.APPLICATION_JSON).content(body))
-            .andExpect(status().isCreated())
-            .andReturn().getResponse().getContentAsString();
-        JsonNode node = json.readTree(response);
-        return node.get("id").asText();
-    }
-
-    private UUID clinic(String slug, String name, boolean publicPage) {
-        UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO clinics(id, slug, display_name, public_page_enabled) VALUES (?, ?, ?, ?)",
-            id, slug, name, publicPage);
-        return id;
-    }
-
-    private void insertUser(UUID clinic, String email, String role) {
-        jdbc.update("INSERT INTO users(id, clinic_id, email, password_hash, role) VALUES (?, ?, ?, ?, ?)",
-            UUID.randomUUID(), clinic, email, passwords.encode(PASSWORD), role);
+        return create("/api/v1/packages", owner, body);
     }
 }
