@@ -143,3 +143,16 @@ a.button {
 .repeat-limit { display: flex; align-items: center; gap: 8px; }
 .repeat-limit input { width: 80px; }
 .repeat-limit select { width: auto; flex: 1; }
+
+/* Pacientes e pacotes */
+.link.name { font-weight: 600; padding: 0; text-decoration: none; color: inherit; text-align: left; }
+.link.back { padding: 0; margin-bottom: 8px; }
+.grow { flex: 1; min-width: 0; }
+.item.package { align-items: flex-start; }
+.meter { height: 8px; background: var(--border); border-radius: 99px; margin: 8px 0 6px; overflow: hidden; }
+.meter span { display: block; height: 100%; background: var(--color-primary); }
+.warn { color: var(--danger); font-weight: 600; }
+.low-balance { margin-bottom: 12px; }
+.low-balance summary { cursor: pointer; font-weight: 600; }
+.low-balance ul { margin: 8px 0 0; padding-left: 18px; }
+.low-balance .link { padding: 0; }

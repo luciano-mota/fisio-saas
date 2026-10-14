@@ -4,6 +4,7 @@ import com.fisiosaas.agenda.Agenda.AppointmentView;
 import com.fisiosaas.agenda.Agenda.Slot;
 import com.fisiosaas.api.ConflictException;
 import com.fisiosaas.identity.CurrentClinic;
+import com.fisiosaas.patientpackage.PackageLedger;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -59,11 +60,13 @@ public class SeriesController {
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
     private final Agenda agenda;
+    private final PackageLedger ledger;
 
-    public SeriesController(JdbcTemplate jdbc, CurrentClinic current, Agenda agenda) {
+    public SeriesController(JdbcTemplate jdbc, CurrentClinic current, Agenda agenda, PackageLedger ledger) {
         this.jdbc = jdbc;
         this.current = current;
         this.agenda = agenda;
+        this.ledger = ledger;
     }
 
     @PostMapping
@@ -132,6 +135,8 @@ public class SeriesController {
                 ids.add(id);
             }
         });
+        // Em ordem de data: as primeiras sessões usam o pacote; as que passarem do saldo ficam avulsas.
+        if (!block) ids.forEach(id -> ledger.linkNew(clinicId, id));
         List<AppointmentView> created = ids.stream().map(id -> agenda.find(clinicId, id)).toList();
         return new SeriesResult(seriesId, created, conflicts);
     }
@@ -151,7 +156,8 @@ public class SeriesController {
         ZoneId zone = agenda.zone(clinicId);
         LocalDate start = from == null ? LocalDate.now(zone) : from;
         int canceled = jdbc.update("""
-            UPDATE appointments SET status = 'CANCELED', updated_at = now()
+            UPDATE appointments SET status = 'CANCELED', patient_package_id = NULL, counts_against_package = FALSE,
+                   updated_at = now()
              WHERE clinic_id = ? AND series_id = ? AND starts_at >= ? AND status IN ('SCHEDULED', 'CONFIRMED')""",
             clinicId, id, agenda.toInstant(start.atStartOfDay(), zone));
         return Map.of("canceled", canceled);

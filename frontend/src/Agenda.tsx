@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { api, ApiError, type Appointment, type AppointmentStatus, type Patient, type Service } from './api';
+import { api, ApiError, whatsappLink, type Appointment, type AppointmentStatus, type Patient, type PatientPackage,
+  type Service } from './api';
 import { addDays, dateOf, dayLabel, minutesBetween, nowLocal, timeOf, today, weekStart } from './dates';
+import { renewalMessage, sessionsLabel } from './messages';
 import { isoWeekday, MAX_OCCURRENCES, seriesDates, WEEKDAYS } from './recurrence';
+import { navigate } from './router';
 
 export const STATUS_LABEL: Record<AppointmentStatus, string> = {
   SCHEDULED: 'Agendada', CONFIRMED: 'Confirmada', DONE: 'Realizada', NO_SHOW: 'Falta', CANCELED: 'Cancelada'
@@ -26,6 +29,7 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   const [form, setForm] = useState<Form | null>(null);
   const [error, setError] = useState('');
   const [conflicts, setConflicts] = useState<string[]>([]);
+  const [lowBalance, setLowBalance] = useState<PatientPackage[]>([]);
 
   const from = view === 'dia' ? date : weekStart(date);
   const to = view === 'dia' ? date : addDays(from, 6);
@@ -33,6 +37,7 @@ export function AgendaTab({ owner }: { owner: boolean }) {
   const load = useCallback(async () => {
     const params = new URLSearchParams({ from, to, includeCanceled: String(showCanceled) });
     setItems(await api<Appointment[]>('/api/v1/appointments?' + params));
+    setLowBalance(await api<PatientPackage[]>('/api/v1/patient-packages/low-balance'));
   }, [from, to, showCanceled]);
 
   useEffect(() => { load().catch(e => setError((e as Error).message)); }, [load]);
@@ -135,6 +140,22 @@ export function AgendaTab({ owner }: { owner: boolean }) {
         {date !== today() && <button onClick={() => setDate(today())}>Hoje</button>}
       </div>
 
+      {lowBalance.length > 0 && (
+        <details className="notice small low-balance">
+          <summary>{lowBalance.length === 1 ? '1 pacote acabando' : `${lowBalance.length} pacotes acabando`} — hora de oferecer renovação</summary>
+          <ul>
+            {lowBalance.map(pkg => (
+              <li key={pkg.id}>
+                <button className="link" onClick={() => navigate('/painel/pacientes/' + pkg.patientId)}>{pkg.patientName}</button>
+                {' '}· {pkg.serviceName} · {pkg.remaining <= 0 ? 'acabou' : `${sessionsLabel(pkg.remaining)} restante${pkg.remaining === 1 ? '' : 's'}`}
+                {pkg.patientWhatsapp && <> · <a href={whatsappLink(pkg.patientWhatsapp, renewalMessage(pkg.patientName, pkg))}
+                                                target="_blank" rel="noreferrer">WhatsApp</a></>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {owner && !form && (
         <div className="actions">
           <button className="primary" disabled={services.length === 0}
@@ -205,6 +226,14 @@ function AgendaItem({ item, owner, started, onStatus, onCancel, onCancelUpcoming
           {item.serviceName}
           {item.originalStartsAt && ` · remarcada (era ${dayLabel(item.originalStartsAt)} ${timeOf(item.originalStartsAt)})`}
         </div>
+        {item.status !== 'CANCELED' && (
+          <div className="small">
+            {item.patientPackageId
+              ? <>Pacote {item.packageName} · <span className={item.packageRemaining !== null && item.packageRemaining <= 2 ? 'warn' : ''}>
+                  {item.packageRemaining} {item.packageRemaining === 1 ? 'restante' : 'restantes'}</span></>
+              : <span className="muted">Sessão avulsa</span>}
+          </div>
+        )}
         {item.notes && <div className="small">{item.notes}</div>}
       </div>
       {owner && (

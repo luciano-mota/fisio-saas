@@ -35,13 +35,19 @@ public class Agenda {
     public record AppointmentView(UUID id, String kind, UUID patientId, String patientName, String patientWhatsapp,
                                   UUID serviceId, String serviceName, LocalDateTime startsAt, LocalDateTime endsAt,
                                   String status, String notes, LocalDateTime originalStartsAt, int rescheduleCount,
-                                  UUID seriesId) {}
+                                  UUID seriesId, UUID patientPackageId, String packageName, Integer packageRemaining,
+                                  boolean countsAgainstPackage) {}
 
     private static final String SELECT = """
-        SELECT a.*, p.full_name AS patient_name, p.whatsapp AS patient_whatsapp, s.name AS service_name
+        SELECT a.*, p.full_name AS patient_name, p.whatsapp AS patient_whatsapp, s.name AS service_name,
+               pp.name AS package_name,
+               (pp.session_count - (SELECT count(*) FROM appointments x
+                                     WHERE x.clinic_id = a.clinic_id AND x.patient_package_id = pp.id
+                                       AND x.counts_against_package))::int AS package_remaining
           FROM appointments a
           LEFT JOIN patients p ON p.id = a.patient_id AND p.clinic_id = a.clinic_id
           LEFT JOIN services s ON s.id = a.service_id AND s.clinic_id = a.clinic_id
+          LEFT JOIN patient_packages pp ON pp.id = a.patient_package_id AND pp.clinic_id = a.clinic_id
         """;
 
     private final JdbcTemplate jdbc;
@@ -136,7 +142,9 @@ public class Agenda {
             local(rs.getObject("ends_at", OffsetDateTime.class), zone),
             rs.getString("status"), rs.getString("notes"),
             original == null ? null : local(original, zone), rs.getInt("reschedule_count"),
-            rs.getObject("series_id", UUID.class));
+            rs.getObject("series_id", UUID.class), rs.getObject("patient_package_id", UUID.class),
+            rs.getString("package_name"), (Integer) rs.getObject("package_remaining"),
+            rs.getBoolean("counts_against_package"));
     }
 
     private static LocalDateTime local(OffsetDateTime instant, ZoneId zone) {
