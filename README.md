@@ -9,8 +9,12 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
 - Login por sessão HTTP-only + CSRF, com bloqueio após 5 senhas erradas (15 min).
 - Multi-tenant: cada clínica só vê e altera os próprios dados (`clinic_id` vem sempre da sessão).
 - Perfis: **OWNER** (responsável, altera tudo) e **STAFF** (consulta).
-- Painel admin:
-  - **Serviços**: nome, descrição, duração, preço opcional, "mostrar preço no site", "permitir agendamento online".
+- Painel admin pensado para o celular: barra de navegação embaixo (Hoje, Agenda, Pacientes, Catálogo, Mais) e menu
+  lateral no computador; formulários em gaveta (folha que sobe no celular), menu "⋯" com as ações secundárias,
+  confirmação e avisos próprios, listas vazias com o próximo passo.
+  - **Hoje**: saudação, sessões do dia, quantas faltam confirmar até amanhã, pacotes acabando (com mensagem de
+    renovação), atalhos (+ Sessão, + Paciente, lembretes de amanhã) e "Primeiros passos" até a clínica estar pronta.
+  - **Serviços e pacotes** (Catálogo) — **Serviços**: nome, descrição, duração, preço opcional, "mostrar preço no site", "permitir agendamento online".
   - **Pacotes**: serviço, nº de sessões, preço opcional (mostra valor por sessão), validade, exibição do preço.
   - **Site**: **logo** (PNG, JPG, WebP ou SVG, convertida para PNG no navegador) com **cores sugeridas a partir da
     logo** (até 4 paletas legíveis), cores com prévia e alerta de contraste, estilo e fontes do site, **fotos** (capa

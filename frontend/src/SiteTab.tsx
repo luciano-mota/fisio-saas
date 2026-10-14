@@ -4,6 +4,7 @@ import { contrastRatio, readableTextOn, themeVariables } from './color';
 import { LogoSection } from './LogoSection';
 import { ACCEPT, preparePhoto } from './photoImage';
 import { SiteSection } from './SiteSection';
+import { Icon, PageHeader, useUi } from './ui';
 
 const MAX_GALLERY = 6;
 
@@ -14,8 +15,8 @@ const MAX_GALLERY = 6;
 export function SiteTab({ owner, profile, onSaved, onLogoChange }: {
   owner: boolean; profile: ClinicProfile; onSaved: (p: ClinicProfile) => void; onLogoChange: (p: ClinicProfile) => void;
 }) {
+  const { toast } = useUi();
   const [form, setForm] = useState<ClinicProfile>(profile);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const text = (key: keyof ClinicProfile) => (form[key] ?? '') as string;
   const set = (patch: Partial<ClinicProfile>) => setForm(f => ({ ...f, ...patch }));
@@ -23,12 +24,11 @@ export function SiteTab({ owner, profile, onSaved, onLogoChange }: {
   async function save(event: FormEvent) {
     event.preventDefault();
     setError('');
-    setMessage('');
     try {
       const saved = await api<ClinicProfile>('/api/v1/clinic', 'PUT', form);
       setForm(saved);
       onSaved(saved);
-      setMessage('Salvo! O site já mostra as novidades.');
+      toast('Salvo! O site já mostra as novidades.');
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -37,13 +37,16 @@ export function SiteTab({ owner, profile, onSaved, onLogoChange }: {
 
   return (
     <section>
-      <h2>Site</h2>
-      {profile.publicPageEnabled
-        ? <p className="small"><a href={publicUrl} target="_blank" rel="noreferrer">Ver meu site ↗</a></p>
-        : <p className="notice small">O site está desativado. Ative em “Clínica” → Página pública.</p>}
+      <PageHeader title="Site" subtitle="Aparência e conteúdo da sua página pública.">
+        {profile.publicPageEnabled && (
+          <a className="button" href={publicUrl} target="_blank" rel="noreferrer"><Icon name="external" size={18} /> Ver meu site</a>
+        )}
+      </PageHeader>
+      {!profile.publicPageEnabled && <p className="notice small">O site está desativado. Ative em “Clínica” → Página pública.</p>}
 
-      <form className="card form" onSubmit={save}>
-        <fieldset disabled={!owner}>
+      <form className="stack" onSubmit={save}>
+        <fieldset disabled={!owner} className="stack">
+          <div className="card form">
           <LogoSection owner={owner} profile={profile} onLogoChange={onLogoChange}
                        current={{ primary: form.colorPrimary, secondary: form.colorSecondary, accent: form.colorAccent }}
                        onPick={t => set({ colorPrimary: t.primary, colorSecondary: t.secondary, colorAccent: t.accent })} />
@@ -65,9 +68,11 @@ export function SiteTab({ owner, profile, onSaved, onLogoChange }: {
             <button type="button" className="preview-cta">Agendar</button>
           </div>
           {primaryContrast < 4.5 && <p className="notice small">Essa cor principal tem pouco contraste com o texto dos botões.</p>}
+          </div>
 
-          <SiteSection form={form} set={set} />
+          <div className="card form"><SiteSection form={form} set={set} /></div>
 
+          <div className="card form">
           <h3>Conteúdo</h3>
           <p className="muted small">Cada parte só aparece no site se estiver preenchida.</p>
           <label>Sobre você<textarea maxLength={1000} value={text('about')} rows={4}
@@ -83,16 +88,17 @@ export function SiteTab({ owner, profile, onSaved, onLogoChange }: {
                                                           placeholder="Centro, Cohama e Renascença"
                                                           onChange={e => set({ siteServiceArea: e.target.value })} /></label>
           </div>
-          <label className="check"><input type="checkbox" checked={form.siteShowMap}
-                                          onChange={e => set({ siteShowMap: e.target.checked })} />
-            Mostrar mapa do endereço no site</label>
-          <label className="check"><input type="checkbox" checked={form.siteShowTestimonials}
-                                          onChange={e => set({ siteShowTestimonials: e.target.checked })} />
-            Mostrar depoimentos no site</label>
+          <label className="switch"><input type="checkbox" checked={form.siteShowMap}
+                                           onChange={e => set({ siteShowMap: e.target.checked })} />
+            <span>Mostrar mapa do endereço no site</span></label>
+          <label className="switch"><input type="checkbox" checked={form.siteShowTestimonials}
+                                           onChange={e => set({ siteShowTestimonials: e.target.checked })} />
+            <span>Mostrar depoimentos no site</span></label>
+          </div>
         </fieldset>
         {error && <p className="error" role="alert">{error}</p>}
-        {message && <p className="success" role="status">{message}</p>}
-        {owner && <div className="actions"><button className="primary">Salvar</button></div>}
+        {owner && <div className="save-bar"><span className="muted small">Logo, cores, estilo e textos valem ao salvar.</span>
+          <button className="primary">Salvar</button></div>}
       </form>
 
       <PhotosSection owner={owner} />
@@ -132,6 +138,7 @@ export function SiteTab({ owner, profile, onSaved, onLogoChange }: {
 // ---------- Fotos ----------
 
 function PhotosSection({ owner }: { owner: boolean }) {
+  const { toast, confirm } = useUi();
   const [photos, setPhotos] = useState<SitePhoto[]>([]);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -159,12 +166,13 @@ function PhotosSection({ owner }: { owner: boolean }) {
     if (!list.length) return;
     run('Enviando…', async () => {
       for (const file of list) await uploadPhoto(await preparePhoto(file), kind);
+      toast(list.length === 1 ? 'Foto enviada' : `${list.length} fotos enviadas`);
     });
   }
 
-  function remove(photo: SitePhoto) {
-    if (!confirm('Remover esta foto? Ela é apagada e some do site.')) return;
-    run('Removendo…', () => api(`/api/v1/clinic/photos/${photo.id}`, 'DELETE'));
+  async function remove(photo: SitePhoto) {
+    if (!await confirm('Remover esta foto? Ela é apagada e some do site.', { confirmLabel: 'Remover foto', danger: true })) return;
+    run('Removendo…', async () => { await api(`/api/v1/clinic/photos/${photo.id}`, 'DELETE'); toast('Foto removida'); });
   }
 
   return (
@@ -244,6 +252,7 @@ type Labels = { empty: string; add: string; edit: string; remove: string };
 function ItemsEditor<T extends { id: string }>({ owner, url, labels, fields, render, consent }: {
   owner: boolean; url: string; labels: Labels; fields: Field<T>[]; render: (item: T) => ReactNode; consent?: boolean;
 }) {
+  const { toast, confirm } = useUi();
   const empty = Object.fromEntries(fields.map(f => [f.key, ''])) as Record<string, string>;
   const [items, setItems] = useState<T[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>(empty);
@@ -270,7 +279,7 @@ function ItemsEditor<T extends { id: string }>({ owner, url, labels, fields, ren
     const ok = await act(() => editing
       ? api(`${url}/${editing}`, 'PUT', draft)
       : api(url, 'POST', consent ? { ...draft, consent: agreed } : draft));
-    if (ok) { setDraft(empty); setEditing(null); setAgreed(false); }
+    if (ok) { toast(editing ? 'Alteração salva' : 'Adicionado'); setDraft(empty); setEditing(null); setAgreed(false); }
   }
 
   return (
@@ -290,8 +299,8 @@ function ItemsEditor<T extends { id: string }>({ owner, url, labels, fields, ren
                   setEditing(item.id);
                   setDraft(Object.fromEntries(fields.map(f => [f.key, String(item[f.key] ?? '')])));
                 }}>Editar</button>
-                <button type="button" className="danger" onClick={() => {
-                  if (confirm(labels.remove)) act(() => api(`${url}/${item.id}`, 'DELETE'));
+                <button type="button" className="danger" onClick={async () => {
+                  if (await confirm(labels.remove, { confirmLabel: 'Remover', danger: true })) act(() => api(`${url}/${item.id}`, 'DELETE'));
                 }}>Remover</button>
               </div>
             )}

@@ -3,6 +3,7 @@ import { api, logoUrl, uploadLogo, type ClinicProfile } from './api';
 import { themeVariables, type Theme } from './color';
 import { ACCEPT, pixelsFromUrl, prepareLogo } from './logoImage';
 import { dominantColors, suggestPalettes } from './palette';
+import { useUi } from './ui';
 
 /**
  * Logo da clínica: envio (convertida para PNG no navegador), prévia e paletas sugeridas a partir das cores
@@ -12,6 +13,7 @@ export function LogoSection({ owner, profile, onLogoChange, onPick, current }: {
   owner: boolean; profile: ClinicProfile; current: Theme;
   onLogoChange: (profile: ClinicProfile) => void; onPick: (theme: Theme) => void;
 }) {
+  const { confirm } = useUi();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [palettes, setPalettes] = useState<Theme[]>([]);
@@ -40,7 +42,8 @@ export function LogoSection({ owner, profile, onLogoChange, onPick, current }: {
   }
 
   async function remove() {
-    if (!confirm('Remover a logo? A página pública volta a mostrar as iniciais da clínica.')) return;
+    if (!await confirm('Remover a logo? A página pública volta a mostrar as iniciais da clínica.',
+      { confirmLabel: 'Remover logo', danger: true })) return;
     await api('/api/v1/clinic/logo', 'DELETE');
     setPalettes([]);
     onLogoChange(await api<ClinicProfile>('/api/v1/clinic'));
