@@ -156,3 +156,6 @@ a.button {
 .low-balance summary { cursor: pointer; font-weight: 600; }
 .low-balance ul { margin: 8px 0 0; padding-left: 18px; }
 .low-balance .link { padding: 0; }
+.button.wa { border-color: #25d366; color: #0f5132; }
+a.primary-link { background: var(--color-primary); color: var(--color-on-primary); border-color: transparent; text-align: center; }
+.reminders .list { margin: 0; }

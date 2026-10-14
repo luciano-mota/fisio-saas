@@ -28,6 +28,9 @@ quantidade de sessões. Planejamento completo no Trello: **Fisio SaaS | Descober
   restantes; aviso "faltam 2" na ficha e na agenda com mensagem de renovação pelo WhatsApp.
   **Falta sem aviso consome sessão?** Configurável por clínica (padrão: não consome); a decisão fica gravada em cada
   falta, então mudar a regra não reescreve o passado.
+- **Confirmação pelo WhatsApp** (link `wa.me`, custo zero): botão "Pedir confirmação" nas sessões agendadas com a
+  mensagem pronta ("Olá, Maria! Confirmando sua sessão de Pilates amanhã (qui, 15/10) às 8h. Responda SIM…") e
+  **Lembretes de amanhã**, que abre um paciente por vez.
 - Página pública `/c/{slug}`: vitrine com as cores da clínica; preço só aparece se a clínica permitir
   ("Valor sob consulta" caso contrário); botão "Agendar pelo WhatsApp" com a escolha já escrita.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos).
@@ -57,7 +60,7 @@ primeiro login.
 
 ```bash
 cd backend && mvn verify      # integração com PostgreSQL real (banco fisio_test) + Flyway
-cd frontend && npm test       # contraste do tema, formatação de CPF/telefone, datas da agenda
+cd frontend && npm test       # tema, CPF/telefone, datas, recorrência e mensagens do WhatsApp
 ```
 
 Cobertura atual: login e sessão, CSRF obrigatório, isolamento entre clínicas (ler, alterar, desativar,
@@ -108,7 +111,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Próximos passos (ordem sugerida)
 
-1. Confirmação da sessão pelo WhatsApp e lembretes de amanhã.
-2. Pagamentos: maquininhas e taxas (bruto/taxa/líquido) e Pix com QR Code + comprovante.
-3. Logo com cores sugeridas automaticamente.
-4. Agendamento online na vitrine (solicitação → pagamento → confirmação).
+1. Pagamentos: maquininhas e taxas (bruto/taxa/líquido) e Pix com QR Code + comprovante.
+2. Logo com cores sugeridas automaticamente.
+3. Agendamento online na vitrine (solicitação → pagamento → confirmação).
