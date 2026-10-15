@@ -3,7 +3,6 @@ import { api, signIn } from './api';
 import { maskPhone } from './format';
 import { PRODUCT_NAME } from './product';
 import { navigate } from './router';
-import { Icon } from './ui';
 import './landing.css';
 
 type Form = { clinicName: string; professionalName: string; email: string; password: string; whatsapp: string; acceptTerms: boolean; website: string };
@@ -30,9 +29,9 @@ export function Signup({ onLogged }: { onLogged: () => void }) {
   return (
     <main className="login">
       <form onInput={() => setError('')} className="card login-card wide" onSubmit={submit}>
-        <span className="brand-mark" aria-hidden="true"><Icon name="calendar" size={22} /></span>
+        <img className="login-logo" src="/brand/physioevo-logo.svg" alt="PhysioEvo" height={36} />
         <h1>Criar conta grátis</h1>
-        <p className="muted">Comece a usar o {PRODUCT_NAME} agora. Grátis durante o período de testes.</p>
+        <p className="muted">Comece a usar o {PRODUCT_NAME} agora, grátis no período de testes. O seu site profissional já vem incluso.</p>
         <label>Nome da clínica (ou o seu nome profissional)
           <input required maxLength={120} placeholder="Ex.: Fisio Ana Lima" value={form.clinicName} onChange={e => set({ clinicName: e.target.value })} /></label>
         <div className="row">

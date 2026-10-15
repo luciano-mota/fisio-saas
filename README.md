@@ -1,7 +1,7 @@
-# Fisio SaaS (nome provisório)
+# PhysioEvo
 
 Sistema para fisioterapeutas autônomos: a própria clínica cadastra serviços e pacotes de sessões
-(com ou sem preço) e ganha um site profissional no estilo dela, com os serviços, fotos, formação, depoimentos e
+(com ou sem preço) e, de bônus pela assinatura, ganha um site profissional no estilo dela, com os serviços, fotos, formação, depoimentos e
 perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planejamento completo no Trello: **Fisio SaaS | Descoberta e MVP**.
 
 ## O que já funciona (Sprint 0)
@@ -191,3 +191,29 @@ docker compose -f docker-compose.prod.yml up -d --build
 1. Correções do teste de homologação (cartões 🐞 no Trello), começando pela sessão que cai a cada deploy.
 2. Revisão jurídica dos termos e da política de privacidade; nome do produto e domínio.
 3. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.
+
+## Marca PhysioEvo
+
+Arquivos em `frontend/public/brand/` (desenhados para o projeto; fonte Plus Jakarta Sans, licença OFL, já convertida
+em curvas nos SVG, então não depende da fonte instalada):
+
+| Arquivo | Uso |
+|---|---|
+| `physioevo-logo.svg` / `physioevo-logo-white.svg` | Logo horizontal (fundo claro / fundo escuro) |
+| `physioevo-mark.svg` / `physioevo-mark-mono.svg` | Só o símbolo (colorido / uma cor) |
+| `favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` | Ícones do navegador e do app na tela inicial |
+| `og-image.png` | Imagem de compartilhamento (WhatsApp, redes sociais), 1200×630 |
+
+O símbolo é uma sequência de vértebras que sobe em direção a uma seta: evolução do paciente e da clínica.
+
+| Cor | Hex |
+|---|---|
+| Azul-petróleo escuro | `#0A5C63` |
+| Verde-menta | `#14B89A` |
+| Verde "Evo" | `#0E8C7E` |
+| Coral (chamadas para ação) | `#FF7A59` |
+| Azul-marinho (textos) | `#0B2B33` |
+| Menta claro (fundos) | `#E3F6F1` |
+
+O site de divulgação (`/`) apresenta o site da clínica como bônus da assinatura, e o rodapé de cada site público
+leva o crédito "Site feito com PhysioEvo".
