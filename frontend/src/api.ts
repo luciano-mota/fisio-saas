@@ -1,6 +1,14 @@
 import type { Theme } from './color';
 
-export type Me = { userId: string; email: string; role: 'OWNER' | 'STAFF'; clinicId: string; clinicName: string };
+export type Me = {
+  userId: string; email: string; role: 'OWNER' | 'STAFF'; clinicId: string; clinicName: string; fullName: string;
+  mustChangePassword: boolean;
+};
+export type Member = {
+  id: string; email: string; fullName: string | null; role: 'OWNER' | 'STAFF'; active: boolean; mustChangePassword: boolean;
+  createdAt: string; me: boolean;
+};
+export type Access = { member: Member; temporaryPassword: string };
 
 export type ClinicProfile = {
   id: string; slug: string; displayName: string; professionalName: string | null; crefito: string | null;

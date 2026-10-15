@@ -29,11 +29,14 @@ public class AuthController {
         var user = current.require(auth);
         String clinicName = jdbc.queryForObject(
             "SELECT display_name FROM clinics WHERE id = ?", String.class, user.clinicId());
+        Map<String, Object> extra = jdbc.queryForMap("SELECT full_name, must_change_password FROM users WHERE id = ?", user.userId());
         return Map.of(
             "userId", user.userId(),
             "email", user.email(),
             "role", user.role(),
             "clinicId", user.clinicId(),
-            "clinicName", clinicName);
+            "clinicName", clinicName,
+            "fullName", extra.get("full_name") == null ? "" : extra.get("full_name"),
+            "mustChangePassword", extra.get("must_change_password"));
     }
 }
