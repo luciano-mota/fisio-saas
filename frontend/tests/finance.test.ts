@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addMonths, brl, chargeMessage, dateBr, methodLabel, monthLabel, monthRange, moneyInput, parseMoney,
+import { addMonths, brl, chargeMessage, dateBr, longDate, methodLabel, monthLabel, monthRange, moneyInput, parseMoney,
   sessionPaymentState } from '../src/finance.ts';
 
 test('valor digitado em reais', () => {
@@ -32,6 +32,7 @@ test('meses', () => {
   assert.equal(addMonths('2026-12', 1), '2027-01');
   assert.deepEqual(monthRange('2028-02'), ['2028-02-01', '2028-02-29']);
   assert.equal(dateBr('2026-10-15'), '15/10/2026');
+  assert.equal(longDate('2026-03-01'), '1 de março de 2026');
 });
 
 test('lembrete de valor em aberto', () => {

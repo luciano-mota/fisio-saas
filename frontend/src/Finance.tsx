@@ -251,9 +251,10 @@ export function PaymentRow({ payment: p, showPatient, onCancel }: { payment: Pay
         {p.notes && <p className="appt-notes">{p.notes}</p>}
       </div>
       <strong className="amount">{brl(p.amount)}</strong>
-      {onCancel && <Menu label={`Ações do pagamento de ${p.patientName}`} items={[
-        { label: 'Estornar', icon: 'repeat', danger: true, onClick: onCancel }
-      ]} />}
+      <Menu label={`Ações do pagamento de ${p.patientName}`} items={[
+        !p.canceled && { label: 'Recibo (imprimir/PDF)', icon: 'external', href: `/painel/recibo/pagamento/${p.id}` },
+        onCancel && { label: 'Estornar', icon: 'repeat', danger: true, onClick: onCancel }
+      ]} />
     </li>
   );
 }

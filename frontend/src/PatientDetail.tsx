@@ -24,6 +24,7 @@ export function PatientDetail({ patientId, owner, onBack }: { patientId: string;
   const [editing, setEditing] = useState<PatientForm | null>(null);
   const [finance, setFinance] = useState<PatientFinance | null>(null);
   const [paying, setPaying] = useState<{ target?: PaymentTarget } | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -134,6 +135,8 @@ export function PatientDetail({ patientId, owner, onBack }: { patientId: string;
 
       <div className="section-title">
         <h2>Pagamentos</h2>
+        {finance && finance.payments.some(p => !p.canceled) &&
+          <button className="see-all" onClick={() => setReceiptOpen(true)}>Recibo para o IR</button>}
         {owner && <button onClick={() => { setError(''); setPaying({}); }}><Icon name="plus" size={18} /> Registrar pagamento</button>}
       </div>
       {finance && (finance.charges.length > 0 || finance.payments.length > 0) ? (
@@ -182,6 +185,7 @@ export function PatientDetail({ patientId, owner, onBack }: { patientId: string;
                     text="Pacotes com valor e sessões avulsas realizadas aparecem aqui, com o que já foi pago." />
       )}
 
+      {receiptOpen && <ReceiptPeriodSheet patientId={patient.id} cpf={patient.cpf} onClose={() => setReceiptOpen(false)} />}
       {owner && paying && (
         <PaymentSheet patientId={patient.id} target={paying.target} onClose={() => setPaying(null)}
                       onSaved={async () => { setPaying(null); toast('Pagamento registrado'); await load(); }} />
@@ -253,6 +257,36 @@ function SaleSheet({ patientId, catalog, onCancel, onSold }: {
           <button className="primary" disabled={!packageId}>Confirmar venda</button>
         </div>
       </form>
+    </Sheet>
+  );
+}
+
+/** Recibo de um período (padrão: o ano até hoje), para o paciente declarar no IR. */
+function ReceiptPeriodSheet({ patientId, cpf, onClose }: { patientId: string; cpf: string | null; onClose: () => void }) {
+  const now = today();
+  const [from, setFrom] = useState(`${now.slice(0, 4)}-01-01`);
+  const [to, setTo] = useState(now);
+  const lastYear = String(Number(now.slice(0, 4)) - 1);
+  return (
+    <Sheet title="Recibo para o Imposto de Renda" onClose={onClose}>
+      <div className="form">
+        <p className="muted small">Junta todos os pagamentos do período num recibo só (estornos não entram). Abre numa nova aba
+          para imprimir ou salvar em PDF e mandar ao paciente.</p>
+        {!cpf && <p className="notice small">O paciente está sem CPF: complete o cadastro para o recibo valer no IR.</p>}
+        <div className="chips">
+          <button type="button" className="chip" onClick={() => { setFrom(`${now.slice(0, 4)}-01-01`); setTo(now); }}>Este ano</button>
+          <button type="button" className="chip" onClick={() => { setFrom(`${lastYear}-01-01`); setTo(`${lastYear}-12-31`); }}>Ano passado ({lastYear})</button>
+        </div>
+        <div className="row">
+          <label>De<input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
+          <label>Até<input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
+        </div>
+        <div className="sheet-actions">
+          <button type="button" onClick={onClose}>Cancelar</button>
+          <a className="button primary" target="_blank" rel="noreferrer" onClick={onClose}
+             href={`/painel/recibo/paciente/${patientId}?de=${from}&ate=${to}`}>Gerar recibo</a>
+        </div>
+      </div>
     </Sheet>
   );
 }
