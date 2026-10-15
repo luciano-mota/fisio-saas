@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { api, whatsappLink, type CardMachine, type Debtor, type FinanceSummary, type Payment, type Receivable } from './api';
+import { api, whatsappLink, type CardMachine, type Debtor, type FinanceSummary, type Payment, type PixSettings,
+  type Receivable } from './api';
 import { today } from './dates';
 import { addMonths, brl, chargeMessage, dateBr, methodLabel, monthLabel, monthRange, moneyInput, parseMoney } from './finance';
 import { PaymentSheet } from './PaymentSheet';
@@ -124,8 +125,13 @@ function SummarySection({ onSection }: { onSection: (s: FinanceSection) => void 
 
 function DebtorsSection({ owner, clinicName, onPay }: { owner: boolean; clinicName: string; onPay: (patientId: string) => void }) {
   const [items, setItems] = useState<Debtor[] | null>(null);
+  const [pix, setPix] = useState(false);
+  const [charging, setCharging] = useState<Debtor | null>(null);
   const [error, setError] = useState('');
-  useEffect(() => { api<Debtor[]>('/api/v1/finance/debtors').then(setItems).catch(e => setError((e as Error).message)); }, []);
+  useEffect(() => {
+    api<Debtor[]>('/api/v1/finance/debtors').then(setItems).catch(e => setError((e as Error).message));
+    api<PixSettings>('/api/v1/clinic/pix').then(s => setPix(!!s.keyType)).catch(() => undefined);
+  }, []);
   const total = items?.reduce((sum, d) => sum + d.balance, 0) ?? 0;
 
   return (
@@ -153,16 +159,44 @@ function DebtorsSection({ owner, clinicName, onPay }: { owner: boolean; clinicNa
             </div>
             <strong className="amount warn">{brl(d.balance)}</strong>
             <div className="row-actions">
-              {d.whatsapp && (
-                <a className="button wa" target="_blank" rel="noreferrer" href={whatsappLink(d.whatsapp, chargeMessage(d.fullName, d.balance, clinicName))}>
-                  <Icon name="whatsapp" size={18} /> Lembrar</a>
-              )}
+              {d.whatsapp && (pix
+                ? <button className="button wa" onClick={() => setCharging(d)}><Icon name="whatsapp" size={18} /> Lembrar</button>
+                : <a className="button wa" target="_blank" rel="noreferrer" href={whatsappLink(d.whatsapp, chargeMessage(d.fullName, d.balance, clinicName))}>
+                    <Icon name="whatsapp" size={18} /> Lembrar</a>)}
               {owner && <button onClick={() => onPay(d.patientId)}>Recebi</button>}
             </div>
           </li>
         ))}
       </ul>
+      {charging && <ChargeSheet debtor={charging} clinicName={clinicName} onClose={() => setCharging(null)} />}
     </div>
+  );
+}
+
+/** Lembrete com Pix copia e cola do valor em aberto (a fisioterapeuta revisa e envia pelo WhatsApp). */
+function ChargeSheet({ debtor, clinicName, onClose }: { debtor: Debtor; clinicName: string; onClose: () => void }) {
+  const [code, setCode] = useState<{ code: string; qrSvg: string } | null>(null);
+  const [withPix, setWithPix] = useState(true);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    api<{ code: string; qrSvg: string }>('/api/v1/finance/pix', 'POST', { amount: debtor.balance }).then(setCode)
+      .catch(e => { setError((e as Error).message); setWithPix(false); });
+  }, [debtor]);
+  const message = chargeMessage(debtor.fullName, debtor.balance, clinicName, withPix && code ? code.code : undefined);
+  return (
+    <Sheet title={`Lembrar ${debtor.fullName.split(' ')[0]}`} onClose={onClose}>
+      <div className="form">
+        <p className="muted small">Em aberto: <strong>{brl(debtor.balance)}</strong>. Revise a mensagem e envie pelo WhatsApp.</p>
+        {code && (
+          <label className="switch small"><input type="checkbox" checked={withPix} onChange={e => setWithPix(e.target.checked)} />
+            <span>Incluir Pix copia e cola com o valor</span></label>
+        )}
+        {error && <p className="muted small">{error}</p>}
+        <pre className="message-preview">{message}</pre>
+        <a className="button wa big" target="_blank" rel="noreferrer" onClick={onClose}
+           href={whatsappLink(debtor.whatsapp ?? '', message)}><Icon name="whatsapp" size={20} /> Enviar no WhatsApp</a>
+      </div>
+    </Sheet>
   );
 }
 

@@ -7,15 +7,15 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 
-/** Conferências de imagens enviadas pela clínica (logo e fotos do site). Nunca confia no Content-Type do cliente. */
-final class Images {
+/** Conferências de imagens enviadas (logo, fotos do site e comprovantes). Nunca confia no Content-Type do cliente. */
+public final class Images {
     private Images() {}
 
-    static boolean isPng(byte[] data) {
+    public static boolean isPng(byte[] data) {
         return data.length > 8 && (data[0] & 0xFF) == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G';
     }
 
-    static boolean isJpeg(byte[] data) {
+    public static boolean isJpeg(byte[] data) {
         return data.length > 3 && (data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8 && (data[2] & 0xFF) == 0xFF;
     }
 
@@ -53,7 +53,7 @@ final class Images {
      * ir para o site público. Mantém só o necessário para exibir: JFIF (APP0), perfil de cor (APP2), Adobe (APP14)
      * e os segmentos de imagem. Percorre os marcadores sem decodificar os pixels.
      */
-    static byte[] stripJpegMetadata(byte[] data) {
+    public static byte[] stripJpegMetadata(byte[] data) {
         if (!isJpeg(data)) throw new IllegalArgumentException("Imagem inválida");
         var out = new ByteArrayOutputStream(data.length);
         out.write(0xFF);

@@ -1,20 +1,36 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { api, ApiError, money, whatsappLink, type PublicClinic, type PublicService } from './api';
+import { api, ApiError, money, uploadReceipt, whatsappLink, type BookingSent, type PublicClinic, type PublicService } from './api';
 import { nextDays, requestSentMessage, whenLabel } from './booking';
 import { dayLabel, today } from './dates';
 import { isValidCpf } from './format';
 import { dayChip } from './panel';
+import { preparePhoto } from './photoImage';
 import { Brand, useSiteLook } from './PublicPage';
 import { navigate } from './router';
 import { SiteIcon } from './SiteIcons';
 
 const DAYS_AHEAD = 21;
-type Step = 'servico' | 'horario' | 'dados' | 'enviado';
-type Form = { fullName: string; cpf: string; whatsapp: string; birthDate: string; notes: string; consent: boolean; website: string };
+type Step = 'servico' | 'horario' | 'dados' | 'pix' | 'enviado';
+type Form = {
+  fullName: string; cpf: string; whatsapp: string; birthDate: string; notes: string; consent: boolean; website: string;
+  payMethod: 'PIX' | 'CLINICA';
+};
+const MAX_PDF = 3 * 1024 * 1024;
 
-/** Preço do serviço no agendamento: só aparece se a clínica deixou visível. Pagamento na clínica (Pix vem depois). */
-function priceText(service: PublicService): string {
-  return service.price === null ? 'Valor sob consulta' : `${money(service.price)} · pagamento na clínica`;
+/** Preço do serviço no agendamento: só aparece se a clínica deixou visível. Com chave Pix, dá para pagar já. */
+function priceText(service: PublicService, pix: boolean): string {
+  if (service.price === null) return 'Valor sob consulta';
+  return `${money(service.price)} · ${pix ? 'Pix agora ou na clínica' : 'pagamento na clínica'}`;
+}
+
+/** Foto do comprovante vira JPEG leve no navegador; PDF vai como está (até 3 MB). */
+async function prepareReceipt(file: File): Promise<{ blob: Blob; name: string }> {
+  const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (pdf) {
+    if (file.size > MAX_PDF) throw new Error('PDF muito grande (máximo 3 MB). Envie um print da tela.');
+    return { blob: file, name: 'comprovante.pdf' };
+  }
+  return { blob: await preparePhoto(file), name: 'comprovante.jpg' };
 }
 
 /**
@@ -30,9 +46,16 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
   const [slots, setSlots] = useState<Record<string, string[]> | null>(null);
   const [day, setDay] = useState('');
   const [time, setTime] = useState('');
-  const [form, setForm] = useState<Form>({ fullName: '', cpf: '', whatsapp: '', birthDate: '', notes: '', consent: false, website: '' });
+  const [form, setForm] = useState<Form>({
+    fullName: '', cpf: '', whatsapp: '', birthDate: '', notes: '', consent: false, website: '', payMethod: 'PIX'
+  });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState<BookingSent | null>(null);
+  const [receipt, setReceipt] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [copied, setCopied] = useState(false);
+  const pix = clinic.booking.pix;
+  const pixFor = (s: PublicService | null) => pix && s !== null && s.price !== null && s.price > 0;
   const days = nextDays(today(), DAYS_AHEAD);
   const back = () => { navigate(`/c/${clinic.slug}`); window.scrollTo(0, 0); };
 
@@ -55,11 +78,13 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
     if (!isValidCpf(form.cpf)) { setError('CPF inválido. Confira os números.'); return; }
     setBusy(true);
     try {
-      await api(`/api/v1/public/clinics/${clinic.slug}/booking-requests`, 'POST', {
+      const result = await api<BookingSent>(`/api/v1/public/clinics/${clinic.slug}/booking-requests`, 'POST', {
         serviceId: service!.id, startsAt: `${day}T${time}`, fullName: form.fullName, cpf: form.cpf, whatsapp: form.whatsapp,
-        birthDate: form.birthDate || null, notes: form.notes || null, consent: form.consent, website: form.website
+        birthDate: form.birthDate || null, notes: form.notes || null, consent: form.consent, website: form.website,
+        payMethod: pixFor(service) ? form.payMethod : null
       });
-      setStep('enviado');
+      setSent(result);
+      setStep(result.pixCode ? 'pix' : 'enviado');
     } catch (e) {
       setError((e as Error).message);
       if (e instanceof ApiError && e.status === 409) {
@@ -70,7 +95,33 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
     } finally { setBusy(false); }
   }
 
-  const stepIndex = { servico: 1, horario: 2, dados: 3, enviado: 3 }[step];
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(sent!.pixCode!);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      (document.getElementById('pix-code') as HTMLTextAreaElement | null)?.select();
+    }
+  }
+
+  async function sendReceipt(file: File | undefined) {
+    if (!file || !sent?.requestId || !sent.receiptToken) return;
+    setError('');
+    setReceipt('sending');
+    try {
+      const { blob, name } = await prepareReceipt(file);
+      await uploadReceipt(clinic.slug, sent.requestId, sent.receiptToken, blob, name);
+      setReceipt('sent');
+    } catch (e) {
+      setError((e as Error).message);
+      setReceipt('idle');
+    }
+  }
+
+  const stepIndex = { servico: 1, horario: 2, dados: 3, pix: 4, enviado: 4 }[step];
+  const steps = pixFor(service) && form.payMethod === 'PIX' ? ['Atendimento', 'Dia e horário', 'Seus dados', 'Pagamento']
+    : ['Atendimento', 'Dia e horário', 'Seus dados'];
   const chosen = service && day && time ? `${service.name} · ${whenLabel(`${day}T${time}`)}` : null;
 
   return (
@@ -88,10 +139,11 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
       <main className="section booking-page">
         <div className="wrap narrow">
           <p className="eyebrow">Agendamento online</p>
-          <h1 className="booking-title">{step === 'enviado' ? 'Pedido enviado!' : 'Escolha seu horário'}</h1>
-          {step !== 'enviado' && (
+          <h1 className="booking-title">
+            {step === 'enviado' || receipt === 'sent' ? 'Pedido enviado!' : step === 'pix' ? 'Falta só o Pix' : 'Escolha seu horário'}</h1>
+          {step !== 'enviado' && receipt !== 'sent' && (
             <ol className="booking-steps" aria-label="Etapas">
-              {['Atendimento', 'Dia e horário', 'Seus dados'].map((label, i) => (
+              {steps.map((label, i) => (
                 <li key={label} className={i + 1 < stepIndex ? 'done' : i + 1 === stepIndex ? 'on' : ''}
                     aria-current={i + 1 === stepIndex ? 'step' : undefined}><span>{i + 1}</span>{label}</li>
               ))}
@@ -108,7 +160,7 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
                   <button key={s.id} type="button" className={service?.id === s.id ? 'booking-option on' : 'booking-option'}
                           onClick={() => { setService(s); setTime(''); setStep('horario'); }}>
                     <strong>{s.name}</strong>
-                    <span>{s.durationMinutes} min · {priceText(s)}</span>
+                    <span>{s.durationMinutes} min · {priceText(s, pix)}</span>
                   </button>
                 ))}
               </div>
@@ -118,7 +170,7 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
           {step === 'horario' && service && (
             <div className="booking-card">
               <div className="booking-chosen">
-                <span><strong>{service.name}</strong> · {service.durationMinutes} min · {priceText(service)}</span>
+                <span><strong>{service.name}</strong> · {service.durationMinutes} min · {priceText(service, pix)}</span>
                 <button type="button" className="btn-text" onClick={() => setStep('servico')}>Trocar</button>
               </div>
               <h2>Qual dia?</h2>
@@ -186,18 +238,66 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
                 <span>Autorizo {clinic.displayName} a usar meu nome, CPF e WhatsApp para identificar meu cadastro e confirmar
                   o agendamento. O CPF também serve para emitir recibo.</span>
               </label>
-              <p className="booking-muted">{priceText(service)}. O horário fica reservado até a clínica confirmar pelo WhatsApp.</p>
+              {pixFor(service) ? (
+                <fieldset className="booking-pay">
+                  <legend>Como prefere pagar? <small>{money(service.price)}</small></legend>
+                  <label className={form.payMethod === 'PIX' ? 'on' : ''}>
+                    <input type="radio" name="pay" checked={form.payMethod === 'PIX'} onChange={() => setForm({ ...form, payMethod: 'PIX' })} />
+                    <span><strong>Pagar agora via Pix</strong><small>QR Code ou copia e cola; depois envie o comprovante</small></span>
+                  </label>
+                  <label className={form.payMethod === 'CLINICA' ? 'on' : ''}>
+                    <input type="radio" name="pay" checked={form.payMethod === 'CLINICA'} onChange={() => setForm({ ...form, payMethod: 'CLINICA' })} />
+                    <span><strong>Pagar na clínica</strong><small>No dia do atendimento</small></span>
+                  </label>
+                </fieldset>
+              ) : (
+                <p className="booking-muted">{priceText(service, pix)}. O horário fica reservado até a clínica confirmar pelo WhatsApp.</p>
+              )}
               <div className="booking-actions">
-                <button className="btn btn-primary btn-lg" disabled={busy}>{busy ? 'Enviando…' : 'Pedir este horário'}</button>
+                <button className="btn btn-primary btn-lg" disabled={busy}>
+                  {busy ? 'Enviando…' : pixFor(service) && form.payMethod === 'PIX' ? 'Pedir horário e pagar' : 'Pedir este horário'}</button>
               </div>
             </form>
           )}
 
-          {step === 'enviado' && service && (
+          {step === 'pix' && service && sent?.pixCode && receipt !== 'sent' && (
+            <div className="booking-card booking-pix">
+              <div className="booking-chosen">
+                <span><SiteIcon name="calendar" size={18} /> <strong>{chosen}</strong></span>
+                <span className="booking-code">Pedido {sent.code}</span>
+              </div>
+              <p className="booking-amount"><small>Valor</small><strong>{money(sent.amount)}</strong></p>
+              <img className="booking-qr" alt="QR Code do Pix" width={220} height={220}
+                   src={`data:image/svg+xml;utf8,${encodeURIComponent(sent.qrSvg ?? '')}`} />
+              <ol className="booking-howto">
+                <li>Abra o app do seu banco e escolha <strong>Pix → Ler QR Code</strong> ou <strong>Pix copia e cola</strong>.</li>
+                <li>Confira o valor e o nome de quem recebe, e pague.</li>
+                <li>Volte aqui e envie o comprovante.</li>
+              </ol>
+              <label className="booking-copy">Pix copia e cola
+                <textarea id="pix-code" readOnly rows={3} value={sent.pixCode} onFocus={e => e.target.select()} />
+              </label>
+              <div className="booking-actions">
+                <button type="button" className="btn btn-outline btn-lg" onClick={copyCode}>
+                  {copied ? <><SiteIcon name="check" size={18} /> Código copiado</> : 'Copiar código Pix'}</button>
+                <label className={`btn btn-primary btn-lg booking-upload${receipt === 'sending' ? ' busy' : ''}`}>
+                  {receipt === 'sending' ? 'Enviando comprovante…' : 'Já paguei — enviar comprovante'}
+                  <input type="file" accept="image/*,application/pdf" disabled={receipt === 'sending'}
+                         onChange={e => { sendReceipt(e.target.files?.[0]); e.target.value = ''; }} />
+                </label>
+              </div>
+              <p className="booking-muted">Seu horário fica reservado até a clínica conferir o pagamento e confirmar pelo WhatsApp.
+                {clinic.whatsapp && <> Se preferir, <a target="_blank" rel="noreferrer"
+                  href={whatsappLink(clinic.whatsapp, `Olá! Paguei o Pix do pedido ${sent.code} (${chosen}). Segue o comprovante.`)}>
+                  mande o comprovante pelo WhatsApp</a>.</>}</p>
+            </div>
+          )}
+
+          {(step === 'enviado' || receipt === 'sent') && service && (
             <div className="booking-card booking-done">
               <span className="booking-check"><SiteIcon name="check" size={32} /></span>
-              <p>Recebemos seu pedido de <strong>{chosen}</strong>.</p>
-              <p className="booking-muted">A clínica vai confirmar pelo WhatsApp {form.whatsapp}. Se não puder nesse horário, ela te chama para combinar outro.</p>
+              <p>Recebemos seu pedido de <strong>{chosen}</strong>{receipt === 'sent' && <> e o comprovante do Pix</>}.</p>
+              <p className="booking-muted">{receipt === 'sent' ? 'A clínica vai conferir o pagamento e confirmar' : 'A clínica vai confirmar'} pelo WhatsApp {form.whatsapp}. Se não puder nesse horário, ela te chama para combinar outro.</p>
               <div className="booking-actions">
                 {clinic.whatsapp && (
                   <a className="btn btn-primary btn-lg" target="_blank" rel="noreferrer"

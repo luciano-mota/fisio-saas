@@ -99,7 +99,12 @@ public class PaymentController {
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public PaymentView create(Authentication auth, @Valid @RequestBody PaymentRequest body) {
-        UUID clinicId = current.requireOwner(auth).clinicId();
+        return register(current.requireOwner(auth).clinicId(), body);
+    }
+
+    /** Registra o pagamento (também usado ao confirmar o Pix de um agendamento pelo site). */
+    @Transactional
+    public PaymentView register(UUID clinicId, PaymentRequest body) {
         Integer patient = jdbc.queryForObject("SELECT count(*) FROM patients WHERE id = ? AND clinic_id = ?",
             Integer.class, body.patientId(), clinicId);
         if (patient == null || patient == 0) throw new NoSuchElementException();

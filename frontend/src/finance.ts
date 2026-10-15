@@ -75,11 +75,12 @@ export function dateBr(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-/** Lembrete gentil de valor em aberto, para o WhatsApp. */
-export function chargeMessage(patientName: string, balance: number, clinicName?: string): string {
+/** Lembrete gentil de valor em aberto, para o WhatsApp. Com o Pix da clínica, já vai o "copia e cola" com o valor. */
+export function chargeMessage(patientName: string, balance: number, clinicName?: string, pixCode?: string): string {
   const from = clinicName ? ` Aqui é da ${clinicName}.` : '';
-  return `Olá, ${firstName(patientName)}! Tudo bem?${from} Passando para lembrar que ficou em aberto ${brl(balance)} ` +
+  const text = `Olá, ${firstName(patientName)}! Tudo bem?${from} Passando para lembrar que ficou em aberto ${brl(balance)} ` +
     'dos seus atendimentos. Pode ser por Pix, dinheiro ou cartão. Se já pagou, me avise para eu dar baixa. Obrigado!';
+  return pixCode ? `${text}\n\nPix copia e cola (é só colar no app do banco):\n${pixCode}` : text;
 }
 
 /** Situação da sessão avulsa: "a pagar", "pago" ou "pago em parte" (sem preço → null). */

@@ -60,6 +60,15 @@ export type BookingRequest = {
   fullName: string; cpf: string; whatsapp: string; birthDate: string | null; notes: string | null;
   status: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CANCELED'; holdUntil: string; createdAt: string;
   declineReason: string | null; appointmentId: string | null; patient: PatientMatch | null; suggestions: PatientMatch[];
+  code: string | null; payMethod: 'PIX' | 'CLINICA' | null; payAmount: number | null;
+  receipt: { contentType: string; sizeBytes: number; uploadedAt: string } | null; paymentId: string | null;
+};
+export type PixKeyType = 'CPF' | 'CNPJ' | 'TELEFONE' | 'EMAIL' | 'ALEATORIA';
+export type PixSettings = { keyType: PixKeyType | null; key: string | null; name: string | null; city: string | null };
+/** Resposta do pedido pelo site; com Pix traz o código, o QR Code e o token do comprovante. */
+export type BookingSent = {
+  message: string; requestId: string | null; code: string | null; amount: number | null; pixCode: string | null;
+  qrSvg: string | null; receiptToken: string | null;
 };
 export type InstallmentFee = { installments: number; fee: number };
 export type CardMachine = {
@@ -107,7 +116,7 @@ export type PublicClinic = {
     testimonials: { authorName: string; text: string }[]; faqs: { question: string; answer: string }[];
   };
   services: PublicService[];
-  booking: { enabled: boolean; hours: OpeningHours[] };
+  booking: { enabled: boolean; hours: OpeningHours[]; pix: boolean };
 };
 
 async function csrf(): Promise<string> {
@@ -189,6 +198,17 @@ export async function uploadPhoto(jpeg: Blob, kind: 'COVER' | 'GALLERY', caption
     method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': await csrf() }, body: form
   });
   return handle<SitePhoto>(res);
+}
+
+/** Comprovante do Pix enviado pelo paciente (sem login: vale o token devolvido no pedido). */
+export async function uploadReceipt(slug: string, requestId: string, token: string, file: Blob, name: string): Promise<{ message: string }> {
+  const form = new FormData();
+  form.append('file', file, name);
+  form.append('token', token);
+  const res = await fetch(`/api/v1/public/clinics/${slug}/booking-requests/${requestId}/receipt`, {
+    method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': await csrf() }, body: form
+  });
+  return handle<{ message: string }>(res);
 }
 
 export function logoUrl(logoVersion: number | null | undefined, slug?: string): string | null {

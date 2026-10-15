@@ -69,6 +69,12 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   WhatsApp. Resumo do mês (recebido, taxas, líquido, por forma), **a receber** da maquininha (marcar como
   recebido), estorno (o pagamento fica no histórico) e a conta de cada paciente na ficha. A sessão avulsa guarda o
   valor do serviço no dia em que foi marcada (pode ter desconto ou cortesia) e a agenda mostra "a pagar"/"pago".
+- **Pix sem intermediário** (custo zero): a clínica cadastra a chave em Clínica → Pix; o sistema gera o **copia e cola
+  + QR Code** (BR Code do Banco Central) com o valor exato e o código do pedido. No agendamento, serviço com preço
+  visível oferece **Pagar agora via Pix** ou **Pagar na clínica**; quem paga envia o **comprovante** (foto ou PDF,
+  conferido pelo conteúdo, até 3 MB, só com o token do próprio pedido) e o horário fica reservado por mais 48 h. Em
+  Solicitações a clínica vê o comprovante (só a responsável), com o aviso de conferir no app do banco, e ao aceitar
+  pode lançar o Pix no financeiro. O lembrete de quem está devendo pode levar o Pix com o valor em aberto.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do
   site são apagadas de verdade ao remover (não são histórico e podem mostrar pessoas — LGPD).
 
@@ -140,6 +146,9 @@ isolamento entre clínicas, STAFF só consulta).
 | GET `?from&to` · POST · POST `/preview` · POST `/{id}/cancel` (estorno) | `/api/v1/payments` | logado · OWNER |
 | GET | `/api/v1/finance/debtors` · `/api/v1/finance/summary?month=` · `/api/v1/finance/receivables` · `/api/v1/patients/{id}/finance` | logado |
 | POST · PUT | `/api/v1/finance/receivables/{id}/received?received=` · `/api/v1/appointments/{id}/price` | OWNER |
+| GET · PUT | `/api/v1/clinic/pix` (chave Pix) · POST `/api/v1/finance/pix` (código com valor) | logado · OWNER |
+| GET | `/api/v1/booking-requests/{id}/receipt` (comprovante do Pix) | OWNER |
+| POST | `/api/v1/public/clinics/{slug}/booking-requests/{id}/receipt` (multipart `file` + `token`, com CSRF) | público |
 | GET | `/api/v1/public/clinics/{slug}` · `/{slug}/logo` · `/{slug}/photos/{id}` · `/{slug}/slots?serviceId&from&to` | público |
 | POST | `/api/v1/public/clinics/{slug}/booking-requests` (com CSRF) | público |
 
@@ -163,7 +172,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Próximos passos (ordem sugerida)
 
-1. Pix com QR Code estático + envio de comprovante no agendamento.
-2. Recibo para IR.
-3. Conta: troca de senha, colaboradores, cadastro de novas clínicas; termos de uso e privacidade (LGPD).
-4. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.
+1. Recibo para IR.
+2. Conta: troca de senha, colaboradores, cadastro de novas clínicas; termos de uso e privacidade (LGPD).
+3. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.

@@ -363,3 +363,33 @@
 .booking-done { justify-items: start; }
 .booking-check { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; background: var(--cta); color: var(--on-cta); }
 @media (min-width: 640px) { .booking-row { grid-template-columns: 1fr 1fr; } }
+
+/* Pagamento no agendamento (Pix) */
+.btn-outline { background: transparent; color: var(--ink); border-color: var(--line); }
+.site button.btn-outline:hover { background: var(--paper-alt); color: var(--ink); }
+.booking-pay { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; }
+.booking-pay legend { font-family: var(--font-heading); font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; padding: 0; }
+.booking-pay legend small { font-family: var(--font-body); font-size: 1rem; color: var(--ink-soft); margin-left: 6px; }
+.booking-form .booking-pay label {
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 2px solid var(--line); border-radius: 14px;
+  cursor: pointer; background: var(--paper); font-weight: 400;
+}
+.booking-form .booking-pay label.on { border-color: var(--cta); background: color-mix(in srgb, var(--cta) 8%, var(--card)); }
+.booking-form .booking-pay input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--cta); }
+.booking-pay span { display: grid; gap: 2px; }
+.booking-pay span small { color: var(--ink-soft); font-size: .88rem; }
+.booking-pix { justify-items: stretch; }
+.booking-code { font-weight: 700; letter-spacing: .06em; font-size: .85rem; color: var(--ink-soft); }
+.booking-amount { display: grid; justify-items: center; margin: 0; }
+.booking-amount small { color: var(--ink-soft); font-size: .85rem; }
+.booking-amount strong { font-family: var(--font-heading); font-size: 2rem; }
+.booking-qr { justify-self: center; width: min(240px, 70vw); height: auto; aspect-ratio: 1; border-radius: 12px; background: #fff; padding: 6px; border: 1px solid var(--line); }
+.booking-howto { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--ink-soft); font-size: .95rem; }
+.booking-copy { display: grid; gap: 6px; font-weight: 600; font-size: .92rem; }
+.booking-copy textarea {
+  font: .82rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); background: var(--paper); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px; word-break: break-all; resize: none; width: 100%; box-sizing: border-box;
+}
+.booking-upload { position: relative; overflow: hidden; }
+.booking-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.booking-upload.busy { opacity: .7; }

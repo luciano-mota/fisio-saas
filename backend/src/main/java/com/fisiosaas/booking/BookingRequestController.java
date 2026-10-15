@@ -3,6 +3,9 @@ package com.fisiosaas.booking;
 import com.fisiosaas.agenda.Agenda;
 import com.fisiosaas.agenda.Sessions;
 import com.fisiosaas.api.ConflictException;
+import com.fisiosaas.finance.CardFees.Method;
+import com.fisiosaas.finance.PaymentController;
+import com.fisiosaas.finance.PaymentController.PaymentRequest;
 import com.fisiosaas.identity.CurrentClinic;
 import com.fisiosaas.patient.PatientController;
 import jakarta.validation.constraints.Size;
@@ -14,7 +17,11 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,13 +42,17 @@ public class BookingRequestController {
     public record RequestView(UUID id, UUID serviceId, String serviceName, BigDecimal servicePrice, LocalDateTime startsAt,
                               LocalDateTime endsAt, String fullName, String cpf, String whatsapp, LocalDate birthDate,
                               String notes, String status, LocalDateTime holdUntil, LocalDateTime createdAt,
-                              String declineReason, UUID appointmentId, PatientMatch patient, List<PatientMatch> suggestions) {}
+                              String declineReason, UUID appointmentId, PatientMatch patient, List<PatientMatch> suggestions,
+                              String code, String payMethod, BigDecimal payAmount, Receipt receipt, UUID paymentId) {}
+
+    /** Comprovante do Pix enviado pelo paciente (o arquivo em si vem por /receipt). */
+    public record Receipt(String contentType, int sizeBytes, LocalDateTime uploadedAt) {}
 
     /**
      * Aceite. {@code linkPatientId}: paciente antigo sem CPF que é a mesma pessoa (recebe o CPF do pedido).
      * {@code updatePatient}: atualiza nome/WhatsApp/nascimento do cadastro com o que veio no pedido.
      */
-    public record AcceptRequest(UUID linkPatientId, Boolean updatePatient) {}
+    public record AcceptRequest(UUID linkPatientId, Boolean updatePatient, Boolean confirmPayment) {}
 
     public record DeclineRequest(@Size(max = 300) String reason) {}
 
@@ -52,8 +63,11 @@ public class BookingRequestController {
     private final Booking booking;
     private final Agenda agenda;
     private final Sessions sessions;
+    private final PaymentController payments;
 
-    public BookingRequestController(JdbcTemplate jdbc, CurrentClinic current, Booking booking, Agenda agenda, Sessions sessions) {
+    public BookingRequestController(JdbcTemplate jdbc, CurrentClinic current, Booking booking, Agenda agenda, Sessions sessions,
+                                    PaymentController payments) {
+        this.payments = payments;
         this.jdbc = jdbc;
         this.current = current;
         this.booking = booking;
@@ -128,10 +142,34 @@ public class BookingRequestController {
 
         UUID appointmentId = sessions.create(clinicId, patientId, req.serviceId(), req.startsAt(),
             (int) java.time.Duration.between(req.startsAt(), req.endsAt()).toMinutes(), req.notes());
+        // Pix conferido no banco: lança o pagamento no financeiro (na sessão, se for avulsa).
+        UUID paymentId = null;
+        if (body != null && Boolean.TRUE.equals(body.confirmPayment()) && "PIX".equals(req.payMethod())) {
+            Boolean inPackage = jdbc.queryForObject("SELECT patient_package_id IS NOT NULL FROM appointments WHERE id = ? AND clinic_id = ?",
+                Boolean.class, appointmentId, clinicId);
+            paymentId = payments.register(clinicId, new PaymentRequest(patientId, null,
+                Boolean.TRUE.equals(inPackage) ? null : appointmentId, Method.PIX, null, 1, req.payAmount(), null,
+                "Pix do agendamento pelo site " + req.code())).id();
+        }
         jdbc.update("""
-            UPDATE booking_requests SET status = 'ACCEPTED', patient_id = ?, appointment_id = ?, decided_at = now()
-             WHERE id = ? AND clinic_id = ?""", patientId, appointmentId, id, clinicId);
+            UPDATE booking_requests SET status = 'ACCEPTED', patient_id = ?, appointment_id = ?, payment_id = ?, decided_at = now()
+             WHERE id = ? AND clinic_id = ?""", patientId, appointmentId, paymentId, id, clinicId);
         return view(clinicId, id);
+    }
+
+    /** Arquivo do comprovante (só a responsável). Servido sem permitir script, mesmo se o PDF tiver. */
+    @GetMapping("/{id}/receipt")
+    public ResponseEntity<byte[]> receipt(Authentication auth, @PathVariable UUID id) {
+        UUID clinicId = current.requireOwner(auth).clinicId();
+        return jdbc.query("SELECT content_type, data FROM booking_receipts WHERE request_id = ? AND clinic_id = ?",
+                (rs, n) -> ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(rs.getString(1)))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"comprovante\"")
+                    .header("Content-Security-Policy", "sandbox")
+                    .header("X-Content-Type-Options", "nosniff")
+                    .cacheControl(CacheControl.noStore())
+                    .body(rs.getBytes(2)), id, clinicId)
+            .stream().findFirst().orElseThrow(NoSuchElementException::new);
     }
 
     @PostMapping("/{id}/decline")
@@ -168,8 +206,10 @@ public class BookingRequestController {
     private RequestView view(UUID clinicId, UUID id) {
         ZoneId zone = agenda.zone(clinicId);
         RequestView base = jdbc.query("""
-                SELECT r.*, s.name AS service_name, CASE WHEN s.show_price THEN s.price END AS service_price
+                SELECT r.*, s.name AS service_name, CASE WHEN s.show_price THEN s.price END AS service_price,
+                       b.content_type AS receipt_type, b.size_bytes AS receipt_size, b.uploaded_at AS receipt_at
                   FROM booking_requests r JOIN services s ON s.id = r.service_id AND s.clinic_id = r.clinic_id
+                  LEFT JOIN booking_receipts b ON b.request_id = r.id AND b.clinic_id = r.clinic_id
                  WHERE r.id = ? AND r.clinic_id = ?""",
             (rs, n) -> new RequestView(rs.getObject("id", UUID.class), rs.getObject("service_id", UUID.class),
                 rs.getString("service_name"), rs.getBigDecimal("service_price"),
@@ -177,7 +217,11 @@ public class BookingRequestController {
                 rs.getString("full_name"), rs.getString("cpf"), rs.getString("whatsapp"), rs.getObject("birth_date", LocalDate.class),
                 rs.getString("notes"), rs.getString("status"), local(rs.getObject("hold_until", OffsetDateTime.class), zone),
                 local(rs.getObject("created_at", OffsetDateTime.class), zone), rs.getString("decline_reason"),
-                rs.getObject("appointment_id", UUID.class), null, List.of()),
+                rs.getObject("appointment_id", UUID.class), null, List.of(), rs.getString("code"), rs.getString("pay_method"),
+                rs.getBigDecimal("pay_amount"), rs.getString("receipt_type") == null ? null
+                    : new Receipt(rs.getString("receipt_type"), rs.getInt("receipt_size"),
+                        local(rs.getObject("receipt_at", OffsetDateTime.class), zone)),
+                rs.getObject("payment_id", UUID.class)),
             id, clinicId).stream().findFirst().orElseThrow(NoSuchElementException::new);
 
         PatientMatch byCpf = jdbc.query("""
@@ -191,7 +235,8 @@ public class BookingRequestController {
                 rs.getObject(4, LocalDate.class), rs.getBoolean(5)), clinicId, base.whatsapp());
         return new RequestView(base.id(), base.serviceId(), base.serviceName(), base.servicePrice(), base.startsAt(),
             base.endsAt(), base.fullName(), base.cpf(), base.whatsapp(), base.birthDate(), base.notes(), base.status(),
-            base.holdUntil(), base.createdAt(), base.declineReason(), base.appointmentId(), byCpf, suggestions);
+            base.holdUntil(), base.createdAt(), base.declineReason(), base.appointmentId(), byCpf, suggestions, base.code(),
+            base.payMethod(), base.payAmount(), base.receipt(), base.paymentId());
     }
 
     private static LocalDateTime local(OffsetDateTime instant, ZoneId zone) {
