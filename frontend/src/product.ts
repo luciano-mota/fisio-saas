@@ -1,3 +1,3 @@
-/** Nome do produto (provisório até a escolha do nome e do domínio) e textos fixos da plataforma. */
-export const PRODUCT_NAME = 'Fisio SaaS';
+/** Nome oficial do produto e textos fixos da plataforma. */
+export const PRODUCT_NAME = 'PhysioEvo';
 export const TERMS_VERSION = '2026-10-15';

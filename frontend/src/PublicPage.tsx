@@ -9,6 +9,7 @@ import { autoHeadline, autoSubtitle, FONTS, fontsUrl, resolveFonts, resolveStyle
 import { resolveMood, resolveTemplate, siteColors, siteColorVariables, type TemplateId } from './siteTheme';
 import { BookingPage } from './BookingPage';
 import { hoursSummary } from './booking';
+import { PRODUCT_NAME } from './product';
 import { navigate } from './router';
 import './site.css';
 
@@ -372,7 +373,8 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
               {clinic.professionalName && <span>{clinic.professionalName}{clinic.crefito && ` · CREFITO ${clinic.crefito}`}</span>}
             </div>
           </div>
-          <p className="footer-note">© {new Date().getFullYear()} {clinic.displayName}</p>
+          <p className="footer-note">© {new Date().getFullYear()} {clinic.displayName}
+            <a className="footer-credit" href="/">Site feito com {PRODUCT_NAME}</a></p>
         </div>
       </footer>
 

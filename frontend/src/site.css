@@ -228,6 +228,7 @@
 .footer-brand { display: flex; align-items: center; gap: 12px; text-align: left; }
 .footer-brand div { display: grid; line-height: 1.35; }
 .footer-brand strong { font-family: var(--font-heading); font-size: 1.15rem; }
+.footer-credit { display: block; margin-top: 4px; color: inherit; font-size: .8rem; opacity: .8; }
 .footer-brand span, .footer-note { color: var(--band-soft); font-size: .9rem; }
 .footer-brand .brand-logo { height: 48px; }
 

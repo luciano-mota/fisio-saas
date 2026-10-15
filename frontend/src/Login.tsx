@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { signIn } from './api';
 import { navigate } from './router';
-import { Icon } from './ui';
+import './landing.css';
 
 export function Login({ onLogged, signupEnabled }: { onLogged: () => void; signupEnabled: boolean }) {
   const [email, setEmail] = useState('');
@@ -26,7 +26,7 @@ export function Login({ onLogged, signupEnabled }: { onLogged: () => void; signu
   return (
     <main className="login">
       <form onInput={() => setError('')} className="card login-card" onSubmit={submit}>
-        <span className="brand-mark" aria-hidden="true"><Icon name="calendar" size={22} /></span>
+        <img className="login-logo" src="/brand/physioevo-logo.svg" alt="PhysioEvo" height={36} />
         <h1>Entrar no painel</h1>
         <p className="muted">Agenda, pacientes, pacotes e o site da sua clínica, num lugar só.</p>
         <label>E-mail
