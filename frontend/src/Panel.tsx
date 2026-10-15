@@ -5,6 +5,7 @@ import { AgendaTab } from './Agenda';
 import { CatalogTab } from './Catalog';
 import { ClinicTab } from './ClinicTab';
 import { PatientsTab } from './Patients';
+import { RequestsTab } from './Requests';
 import { useFonts } from './PublicPage';
 import { navigate, usePath } from './router';
 import { SiteTab } from './SiteTab';
@@ -12,17 +13,19 @@ import { TodayTab } from './Today';
 import { avatarInitials } from './format';
 import { Icon, Sheet, UiProvider, type IconName } from './ui';
 
-type Tab = 'hoje' | 'agenda' | 'pacientes' | 'catalogo' | 'site' | 'clinica';
+type Tab = 'hoje' | 'agenda' | 'solicitacoes' | 'pacientes' | 'catalogo' | 'site' | 'clinica';
 const NAV: { id: Tab; label: string; short?: string; icon: IconName }[] = [
   { id: 'hoje', label: 'Hoje', icon: 'home' },
   { id: 'agenda', label: 'Agenda', icon: 'calendar' },
+  { id: 'solicitacoes', label: 'Solicitações', short: 'Pedidos', icon: 'bell' },
   { id: 'pacientes', label: 'Pacientes', icon: 'users' },
   { id: 'catalogo', label: 'Serviços e pacotes', short: 'Catálogo', icon: 'tag' },
   { id: 'site', label: 'Site', icon: 'globe' },
   { id: 'clinica', label: 'Clínica', icon: 'building' }
 ];
-/** No celular, a barra de baixo tem as 4 primeiras; o resto fica em "Mais". */
+/** No celular, a barra de baixo tem as 4 do dia a dia; o resto fica em "Mais". */
 const BOTTOM = NAV.slice(0, 4);
+const MORE = NAV.slice(4);
 
 /** Endereços antigos (abas separadas) continuam funcionando. */
 const LEGACY: Record<string, string> = { servicos: '/painel/catalogo', pacotes: '/painel/catalogo/pacotes' };
@@ -41,7 +44,10 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const tab = (NAV.find(t => t.id === segment)?.id ?? 'hoje') as Tab;
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [more, setMore] = useState(false);
+  const [pending, setPending] = useState(0);
   const owner = me.role === 'OWNER';
+  const refreshPending = () => api<{ pending: number }>('/api/v1/booking-requests/count')
+    .then(c => setPending(c.pending)).catch(() => undefined);
   useFonts('profissional');
 
   useEffect(() => {
@@ -50,7 +56,7 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
   useEffect(() => {
     api<ClinicProfile>('/api/v1/clinic').then(p => { setProfile(p); applyTheme(p); });
   }, []);
-  useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [tab]);
+  useEffect(() => { setMore(false); window.scrollTo(0, 0); refreshPending(); }, [tab]);
 
   async function logout() {
     await signOut().catch(() => undefined);
@@ -74,7 +80,8 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
               <a key={t.id} href={`/painel/${t.id}`} className={t.id === tab ? 'active' : ''}
                  aria-current={t.id === tab ? 'page' : undefined}
                  onClick={e => { e.preventDefault(); navigate('/painel/' + t.id); }}>
-                <Icon name={t.icon} />{t.label}</a>
+                <Icon name={t.icon} />{t.label}
+                {t.id === 'solicitacoes' && pending > 0 && <span className="badge" aria-label={`${pending} pendentes`}>{pending}</span>}</a>
             ))}
           </nav>
           <div className="sidebar-foot">
@@ -92,8 +99,9 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
         <main className="content">
           {!owner && <p className="notice small">Você está como colaborador: pode consultar, mas só a responsável altera.</p>}
-          {tab === 'hoje' && <TodayTab owner={owner} profile={profile} />}
+          {tab === 'hoje' && <TodayTab owner={owner} profile={profile} pendingRequests={pending} />}
           {tab === 'agenda' && <AgendaTab owner={owner} action={sub} />}
+          {tab === 'solicitacoes' && <RequestsTab owner={owner} onChanged={refreshPending} />}
           {tab === 'pacientes' && <PatientsTab owner={owner} patientId={sub} />}
           {tab === 'catalogo' && <CatalogTab owner={owner} section={sub === 'pacotes' ? 'pacotes' : 'servicos'} />}
           {tab === 'site' && profile && <SiteTab owner={owner} profile={profile} onSaved={saved} onLogoChange={setProfile} />}
@@ -105,9 +113,10 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <a key={t.id} href={`/painel/${t.id}`} className={t.id === tab ? 'active' : ''}
                aria-current={t.id === tab ? 'page' : undefined}
                onClick={e => { e.preventDefault(); navigate('/painel/' + t.id); }}>
-              <Icon name={t.icon} size={22} /><span>{t.short ?? t.label}</span></a>
+              <Icon name={t.icon} size={22} /><span>{t.short ?? t.label}</span>
+              {t.id === 'solicitacoes' && pending > 0 && <span className="badge dot" aria-label={`${pending} pendentes`}>{pending}</span>}</a>
           ))}
-          <button className={tab === 'site' || tab === 'clinica' ? 'active' : ''} aria-haspopup="dialog"
+          <button className={MORE.some(t => t.id === tab) ? 'active' : ''} aria-haspopup="dialog"
                   onClick={() => setMore(true)}>
             <Icon name="more" size={22} /><span>Mais</span></button>
         </nav>
@@ -115,7 +124,7 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
         {more && (
           <Sheet title="Mais" onClose={() => setMore(false)}>
             <div className="more-list">
-              {NAV.slice(4).map(t => (
+              {MORE.map(t => (
                 <button key={t.id} onClick={() => navigate('/painel/' + t.id)}><Icon name={t.icon} />{t.label}
                   <span className="chev"><Icon name="right" size={18} /></span></button>
               ))}

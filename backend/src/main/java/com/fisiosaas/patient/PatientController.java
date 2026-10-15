@@ -133,7 +133,7 @@ public class PatientController {
     }
 
     /** "  João  da SILVA " → "joao da silva". */
-    static String searchKey(String text) {
+    public static String searchKey(String text) {
         String noAccents = Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
         return noAccents.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }

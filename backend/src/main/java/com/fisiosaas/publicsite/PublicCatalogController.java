@@ -34,7 +34,12 @@ public class PublicCatalogController {
 
     public record PublicClinic(String slug, String displayName, String professionalName, String crefito,
                                String whatsapp, String address, String about, Theme theme,
-                               Long logoVersion, Site site, List<PublicService> services) {}
+                               Long logoVersion, Site site, List<PublicService> services, Booking booking) {}
+
+    /** Agendamento pelo site ligado? E o horário de atendimento (weekday ISO, "HH:mm"). */
+    public record Booking(boolean enabled, List<OpeningHours> hours) {}
+
+    public record OpeningHours(int weekday, String start, String end) {}
 
     /**
      * Aparência e conteúdo do site. Estilo/fontes "auto" = o site decide pelo tipo de serviço. Depoimentos só vêm
@@ -70,7 +75,8 @@ public class PublicCatalogController {
                 rs.getString("slug"), rs.getString("display_name"), rs.getString("professional_name"),
                 rs.getString("crefito"), rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
                 new Theme(rs.getString("color_primary"), rs.getString("color_secondary"),
-                    rs.getString("color_accent")), (Long) rs.getObject("logo_version"), null, List.of()),
+                    rs.getString("color_accent")), (Long) rs.getObject("logo_version"), null, List.of(),
+                    new Booking(rs.getBoolean("booking_enabled"), List.of())),
                 new Content(rs.getString("site_style"), rs.getString("site_fonts"), rs.getString("site_template"),
                     rs.getString("site_mood"), rs.getString("site_headline"),
                     rs.getString("site_education"), rs.getString("site_hours"), rs.getString("site_service_area"),
@@ -103,9 +109,13 @@ public class PublicCatalogController {
             content.serviceArea(), content.showMap(), cover, gallery, testimonials, faqs);
 
         PublicClinic base = clinic.base();
+        List<OpeningHours> hours = jdbc.query("""
+                SELECT weekday, to_char(start_time, 'HH24:MI'), to_char(end_time, 'HH24:MI') FROM clinic_hours
+                 WHERE clinic_id = ? ORDER BY weekday, start_time""",
+            (rs, n) -> new OpeningHours(rs.getInt(1), rs.getString(2), rs.getString(3)), clinicId);
         PublicClinic body = new PublicClinic(base.slug(), base.displayName(), base.professionalName(),
             base.crefito(), base.whatsapp(), base.address(), base.about(), base.theme(), base.logoVersion(), site,
-            services);
+            services, new Booking(base.booking().enabled(), hours));
         return ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(body);
     }
 

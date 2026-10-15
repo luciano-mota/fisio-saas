@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 /** Entrega o index.html do React para as rotas do frontend (navegação direta / F5). */
 @Controller
 public class SpaController {
-    @GetMapping({"/login", "/painel", "/painel/**", "/c/{slug}"})
+    @GetMapping({"/login", "/painel", "/painel/**", "/c/{slug}", "/c/{slug}/agendar"})
     public String spa() {
         return "forward:/index.html";
     }

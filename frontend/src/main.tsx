@@ -10,7 +10,8 @@ import './style.css';
 function App() {
   const path = usePath();
   const [me, setMe] = useState<Me | null | undefined>(undefined);
-  const publicSlug = path.match(/^\/c\/([a-z0-9-]+)\/?$/)?.[1];
+  const publicMatch = path.match(/^\/c\/([a-z0-9-]+)(\/agendar)?\/?$/);
+  const publicSlug = publicMatch?.[1];
 
   useEffect(() => {
     if (publicSlug) return;
@@ -27,7 +28,7 @@ function App() {
     if (me === null && path !== '/login') navigate('/login');
   }, [me, path, publicSlug]);
 
-  if (publicSlug) return <PublicPage slug={publicSlug} />;
+  if (publicSlug) return <PublicPage slug={publicSlug} booking={!!publicMatch?.[2]} />;
   if (me === undefined) return <div className="center muted">Carregando…</div>;
   if (me === null) return <Login onLogged={() => api<Me>('/api/v1/auth/me').then(setMe)} />;
   return <Panel me={me} onLogout={() => setMe(null)} />;

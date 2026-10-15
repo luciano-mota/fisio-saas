@@ -7,6 +7,9 @@ import { bookingMessage, educationItems, mapEmbedUrl, mapLinkUrl, photoUrl } fro
 import { autoHeadline, autoSubtitle, FONTS, fontsUrl, resolveFonts, resolveStyle, serviceIcon, STYLES,
   type FontsId, type StyleId } from './siteStyle';
 import { resolveMood, resolveTemplate, siteColors, siteColorVariables, type TemplateId } from './siteTheme';
+import { BookingPage } from './BookingPage';
+import { hoursSummary } from './booking';
+import { navigate } from './router';
 import './site.css';
 
 /** Iniciais para quando a clínica ainda não enviou a logo ("Clínica Bem Estar" → "CB"). */
@@ -46,7 +49,7 @@ function useBranding(clinic: PublicClinic | null | undefined, logo: string | nul
 }
 
 /** A logo aparece só na barra do topo e no rodapé; sem logo, as iniciais. */
-function Brand({ clinic, logo }: { clinic: PublicClinic; logo: string | null }) {
+export function Brand({ clinic, logo }: { clinic: PublicClinic; logo: string | null }) {
   return logo
     ? <img className="brand-logo" src={logo} alt={`Logo ${clinic.displayName}`} />
     : <span className="brand-monogram" aria-hidden="true">{initials(clinic.displayName)}</span>;
@@ -69,7 +72,7 @@ function previewOverrides(clinic: PublicClinic): PublicClinic {
   };
 }
 
-export function PublicPage({ slug }: { slug: string }) {
+export function PublicPage({ slug, booking = false }: { slug: string; booking?: boolean }) {
   const [clinic, setClinic] = useState<PublicClinic | null | undefined>(undefined);
 
   useEffect(() => {
@@ -81,7 +84,27 @@ export function PublicPage({ slug }: { slug: string }) {
 
   if (clinic === undefined) return <div className="center muted">Carregando…</div>;
   if (clinic === null) return <div className="center"><h1>Página não encontrada</h1></div>;
+  if (booking && clinic.booking.enabled) return <BookingPage clinic={clinic} />;
   return <ClinicSite clinic={clinic} />;
+}
+
+/** Aparência do site da clínica (estilo, fontes, modelo, clima, logo e variáveis de cor), usada também no agendamento. */
+export function useSiteLook(clinic: PublicClinic) {
+  const site = clinic.site;
+  const style: StyleId = resolveStyle(site.style, clinic.services, clinic.about);
+  const fonts: FontsId = resolveFonts(site.fonts, style);
+  const template = resolveTemplate(site.template, style);
+  const mood = resolveMood(site.mood);
+  useFonts(fonts);
+  const logo = logoUrl(clinic.logoVersion, clinic.slug);
+  useBranding(clinic, logo);
+  const vars = useMemo(() => ({
+    ...themeVariables(clinic.theme),
+    ...siteColorVariables(siteColors(clinic.theme, mood)),
+    '--font-heading': `'${FONTS[fonts].heading}', Georgia, serif`,
+    '--font-body': `'${FONTS[fonts].body}', system-ui, sans-serif`
+  }) as CSSProperties, [clinic.theme, fonts, mood]);
+  return { style, fonts, template, mood, logo, vars };
 }
 
 /** Quais seções ficam na faixa forte (cor da clínica, texto claro) em cada modelo. */
@@ -97,29 +120,25 @@ const BAND_SECTIONS: Record<TemplateId, string[]> = {
  */
 export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
   const site = clinic.site;
-  const style: StyleId = resolveStyle(site.style, clinic.services, clinic.about);
-  const fonts: FontsId = resolveFonts(site.fonts, style);
-  const template = resolveTemplate(site.template, style);
-  const mood = resolveMood(site.mood);
-  useFonts(fonts);
-  const logo = logoUrl(clinic.logoVersion, clinic.slug);
-  useBranding(clinic, logo);
+  const { style, template, mood, logo, vars } = useSiteLook(clinic);
 
   const headline = site.headline || autoHeadline(style, clinic.services);
   const subtitle = autoSubtitle(clinic.services);
   const book = (serviceName?: string) =>
     clinic.whatsapp ? whatsappLink(clinic.whatsapp, bookingMessage(clinic.displayName, serviceName)) : null;
   const hello = book();
+  const bookingUrl = clinic.booking.enabled ? `/c/${clinic.slug}/agendar` : null;
+  const goBooking = (serviceId?: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate(`/c/${clinic.slug}/agendar${serviceId ? `?servico=${serviceId}` : ''}`);
+    window.scrollTo(0, 0);
+  };
+  const openingHours = hoursSummary(clinic.booking.hours);
+  const hoursText = openingHours.length > 0 ? openingHours.join(' · ') : site.hours;
   const homeCare = !!site.serviceArea || clinic.services.some(s => serviceIcon(s.name, s.description) === 'home');
   const education = educationItems(site.education);
   const hasAbout = !!(clinic.about || education.length);
-  const hasContact = !!(clinic.address || site.serviceArea || site.hours || hello);
-  const vars = useMemo(() => ({
-    ...themeVariables(clinic.theme),
-    ...siteColorVariables(siteColors(clinic.theme, mood)),
-    '--font-heading': `'${FONTS[fonts].heading}', Georgia, serif`,
-    '--font-body': `'${FONTS[fonts].body}', system-ui, sans-serif`
-  }) as CSSProperties, [clinic.theme, fonts, mood]);
+  const hasContact = !!(clinic.address || site.serviceArea || site.hours || clinic.booking.hours.length || hello);
   // Alterna fundo papel / papel tingido entre as seções, e usa a faixa forte onde o modelo pede.
   const tone = (() => {
     let alt = false;
@@ -130,7 +149,11 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
     };
   })();
 
-  const cta = hello && (
+  const cta = bookingUrl ? (
+    <a className="btn btn-primary btn-lg" href={bookingUrl} onClick={goBooking()}>
+      <SiteIcon name="calendar" size={20} /> Agendar horário
+    </a>
+  ) : hello && (
     <a className="btn btn-primary btn-lg" href={hello} target="_blank" rel="noreferrer">
       <SiteIcon name="whatsapp" size={20} /> Agendar pelo WhatsApp
     </a>
@@ -162,13 +185,14 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
             {site.faqs.length > 0 && <a href="#duvidas">Dúvidas</a>}
             {hasContact && <a href="#contato">Contato</a>}
           </nav>
-          {hello && <a className="btn btn-primary btn-sm" href={hello} target="_blank" rel="noreferrer">Agendar</a>}
+          {bookingUrl ? <a className="btn btn-primary btn-sm" href={bookingUrl} onClick={goBooking()}>Agendar</a>
+            : hello && <a className="btn btn-primary btn-sm" href={hello} target="_blank" rel="noreferrer">Agendar</a>}
         </div>
       </header>
 
       <Hero template={template} clinic={clinic} text={heroText} />
 
-      {(clinic.crefito || site.hours || homeCare) && (
+      {(clinic.crefito || hoursText || homeCare) && (
         <section className="facts" aria-label="Informações rápidas">
           <ul className="wrap facts-list">
             {clinic.crefito && (
@@ -178,8 +202,8 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
               <li><SiteIcon name="home" size={22} /><div><strong>Atendimento em casa</strong>
                 <span>{site.serviceArea ?? 'Consulte sua região'}</span></div></li>
             )}
-            {site.hours && (
-              <li><SiteIcon name="calendar" size={22} /><div><strong>Horários</strong><span>{site.hours}</span></div></li>
+            {hoursText && (
+              <li><SiteIcon name="calendar" size={22} /><div><strong>Horários</strong><span>{hoursText}</span></div></li>
             )}
           </ul>
         </section>
@@ -195,7 +219,10 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
               </div>
               <ul className="services">
                 {clinic.services.map((service, i) => (
-                  <ServiceItem key={service.id} index={i} service={service} link={service.onlineBooking ? book(service.name) : null} />
+                  <ServiceItem key={service.id} index={i} service={service}
+                               link={!service.onlineBooking ? null : bookingUrl
+                                 ? { href: `${bookingUrl}?servico=${service.id}`, onClick: goBooking(service.id) }
+                                 : book(service.name) && { href: book(service.name)!, external: true }} />
                 ))}
               </ul>
             </div>
@@ -240,18 +267,26 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
           </section>
         )}
 
-        {hello && (
+        {(hello || bookingUrl) && (
           <section className={tone('como')} aria-labelledby="titulo-como">
             <div className="wrap">
               <div className="section-head">
                 <p className="eyebrow">Simples assim</p>
                 <h2 id="titulo-como">Como agendar</h2>
               </div>
-              <ol className="steps">
-                <li><span className="step-n">1</span><h3>Escolha o atendimento</h3><p>Veja acima o que combina com você. Na dúvida, comece pela avaliação.</p></li>
-                <li><span className="step-n">2</span><h3>Chame no WhatsApp</h3><p>A mensagem já vai pronta. Combinamos o melhor dia e horário.</p></li>
-                <li><span className="step-n">3</span><h3>Comece o tratamento</h3><p>Acompanhamento de perto, sessão a sessão, com um plano para você.</p></li>
-              </ol>
+              {bookingUrl ? (
+                <ol className="steps">
+                  <li><span className="step-n">1</span><h3>Escolha o atendimento</h3><p>Veja acima o que combina com você. Na dúvida, comece pela avaliação.</p></li>
+                  <li><span className="step-n">2</span><h3>Escolha o horário aqui</h3><p>Só aparecem horários livres. Informe nome, CPF e WhatsApp.</p></li>
+                  <li><span className="step-n">3</span><h3>Receba a confirmação</h3><p>A clínica confirma pelo WhatsApp e o horário fica reservado para você.</p></li>
+                </ol>
+              ) : (
+                <ol className="steps">
+                  <li><span className="step-n">1</span><h3>Escolha o atendimento</h3><p>Veja acima o que combina com você. Na dúvida, comece pela avaliação.</p></li>
+                  <li><span className="step-n">2</span><h3>Chame no WhatsApp</h3><p>A mensagem já vai pronta. Combinamos o melhor dia e horário.</p></li>
+                  <li><span className="step-n">3</span><h3>Comece o tratamento</h3><p>Acompanhamento de perto, sessão a sessão, com um plano para você.</p></li>
+                </ol>
+              )}
             </div>
           </section>
         )}
@@ -308,8 +343,9 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
                   {site.serviceArea && (
                     <li><SiteIcon name="home" size={22} /><div><strong>Atendimento em casa</strong><span>{site.serviceArea}</span></div></li>
                   )}
-                  {site.hours && (
-                    <li><SiteIcon name="calendar" size={22} /><div><strong>Horários</strong><span>{site.hours}</span></div></li>
+                  {hoursText && (
+                    <li><SiteIcon name="calendar" size={22} /><div><strong>Horários</strong>
+                      {openingHours.length > 0 ? openingHours.map(line => <span key={line}>{line}</span>) : <span>{hoursText}</span>}</div></li>
                   )}
                   {clinic.whatsapp && hello && (
                     <li><SiteIcon name="whatsapp" size={22} /><div><strong>WhatsApp</strong>
@@ -419,7 +455,9 @@ function HeroPanel({ clinic, badge }: { clinic: PublicClinic; badge: ReactNode }
 }
 
 /** Serviço em lista: o que é e quanto dura. Preço e forma de pagamento ficam para o agendamento. */
-function ServiceItem({ service, link, index }: { service: PublicService; link: string | null; index: number }) {
+type ServiceLink = { href: string; external?: boolean; onClick?: (e: React.MouseEvent) => void };
+
+function ServiceItem({ service, link, index }: { service: PublicService; link: ServiceLink | null | false | ''; index: number }) {
   return (
     <li className="service">
       <span className="service-num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
@@ -429,7 +467,9 @@ function ServiceItem({ service, link, index }: { service: PublicService; link: s
         {service.description && <p>{service.description}</p>}
         <p className="service-meta">
           <span>{service.durationMinutes} min por sessão</span>
-          {link && <a href={link} target="_blank" rel="noreferrer" aria-label={`Agendar ${service.name} pelo WhatsApp`}>Agendar <SiteIcon name="arrow" size={16} /></a>}
+          {link && (link.external
+            ? <a href={link.href} target="_blank" rel="noreferrer" aria-label={`Agendar ${service.name} pelo WhatsApp`}>Agendar <SiteIcon name="arrow" size={16} /></a>
+            : <a href={link.href} onClick={link.onClick} aria-label={`Agendar ${service.name}`}>Agendar <SiteIcon name="arrow" size={16} /></a>)}
         </p>
       </div>
     </li>
