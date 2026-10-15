@@ -125,7 +125,7 @@ function ServicesList({ owner }: { owner: boolean }) {
 
       {form && (
         <Sheet title={form.id ? 'Editar serviço' : 'Novo serviço'} onClose={() => setForm(null)}>
-          <form className="form" onSubmit={save}>
+          <form onInput={() => setError('')} className="form" onSubmit={save}>
             <label>Nome<input required maxLength={120} value={form.name} placeholder="Ex.: Pilates, RPG, Fisioterapia ortopédica"
                               onChange={e => setForm({ ...form, name: e.target.value })} /></label>
             <label>Descrição curta<textarea maxLength={600} value={form.description}
@@ -246,7 +246,7 @@ function PackagesList({ owner }: { owner: boolean }) {
 
       {form && (
         <Sheet title={form.id ? 'Editar pacote' : 'Novo pacote'} onClose={() => setForm(null)}>
-          <form className="form" onSubmit={save}>
+          <form onInput={() => setError('')} className="form" onSubmit={save}>
             <label>Serviço
               <select required value={form.serviceId} onChange={e => setForm({ ...form, serviceId: e.target.value })}>
                 <option value="">Escolha…</option>

@@ -118,6 +118,7 @@ public class AccountController {
         String temporary = temporaryPassword();
         jdbc.update("UPDATE users SET password_hash = ?, must_change_password = TRUE WHERE id = ? AND clinic_id = ?",
             passwords.encode(temporary), id, owner.clinicId());
+        endSessions(member.email());
         log.info("Senha redefinida pela responsável: clinica={} usuario={}", owner.clinicId(), id);
         return new Access(find(owner, id), temporary);
     }
@@ -131,6 +132,7 @@ public class AccountController {
         if (member.me()) throw new IllegalArgumentException("Você não pode remover o seu próprio acesso");
         if (member.role().equals("OWNER")) requireAnotherOwner(owner, id);
         jdbc.update("UPDATE users SET active = FALSE WHERE id = ? AND clinic_id = ?", id, owner.clinicId());
+        endSessions(member.email());
     }
 
     @PostMapping("/team/{id}/reactivate")
@@ -149,6 +151,11 @@ public class AccountController {
         if (password.equalsIgnoreCase(email) || (local.length() >= 4 && password.toLowerCase(Locale.ROOT).contains(local))) {
             throw new IllegalArgumentException("A senha não pode conter o seu e-mail");
         }
+    }
+
+    /** Derruba os logins abertos da pessoa (acesso removido ou senha redefinida). */
+    private void endSessions(String email) {
+        jdbc.update("DELETE FROM spring_session WHERE lower(principal_name) = lower(?)", email);
     }
 
     private void requireAnotherOwner(ClinicUser owner, UUID except) {

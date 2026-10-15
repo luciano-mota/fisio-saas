@@ -176,7 +176,7 @@ function DeclineSheet({ item, onClose, onDone }: { item: BookingRequest; onClose
   const [error, setError] = useState('');
   return (
     <Sheet title={`Recusar pedido de ${item.fullName.split(' ')[0]}`} onClose={onClose}>
-      <form className="form" onSubmit={async e => {
+      <form onInput={() => setError('')} className="form" onSubmit={async e => {
         e.preventDefault();
         try {
           await api(`/api/v1/booking-requests/${item.id}/decline`, 'POST', { reason });

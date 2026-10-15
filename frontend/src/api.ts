@@ -124,7 +124,7 @@ export type PublicClinic = {
     testimonials: { authorName: string; text: string }[]; faqs: { question: string; answer: string }[];
   };
   services: PublicService[];
-  booking: { enabled: boolean; hours: OpeningHours[]; pix: boolean };
+  booking: { enabled: boolean; hours: OpeningHours[]; pix: boolean; maxDays: number };
 };
 
 async function csrf(): Promise<string> {
@@ -145,9 +145,15 @@ export class ApiError extends Error {
   }
 }
 
+/** O servidor gratuito reinicia (deploy ou volta do sono): respostas 502/503/504 são passageiras. */
+const RESTARTING = [502, 503, 504];
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    let message = 'Falha na operação (' + res.status + ')';
+    let message = RESTARTING.includes(res.status)
+      ? 'O servidor está reiniciando. Tente de novo em alguns segundos.'
+      : 'Falha na operação (' + res.status + ')';
     let conflicts: string[] = [];
     try {
       const body = JSON.parse(await res.text()) as { error?: string; conflicts?: string[] };
@@ -168,10 +174,16 @@ export async function api<T>(url: string, method = 'GET', payload?: unknown): Pr
     headers['X-XSRF-TOKEN'] = await csrf();
     headers['Content-Type'] = 'application/json';
   }
-  const res = await fetch(url, {
+  const send = () => fetch(url, {
     method, headers, credentials: 'same-origin',
     body: payload === undefined ? undefined : JSON.stringify(payload)
   });
+  let res = await send();
+  // Leitura pode repetir sem risco: espera o servidor voltar e tenta de novo (até ~20 s).
+  for (let attempt = 0; method === 'GET' && RESTARTING.includes(res.status) && attempt < 4; attempt++) {
+    await wait(2500 * (attempt + 1));
+    res = await send();
+  }
   return handle<T>(res);
 }
 

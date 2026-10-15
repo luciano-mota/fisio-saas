@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, whatsappLink, type Patient } from './api';
-import { ageOn, formatCpf, formatPhone, isValidCpf } from './format';
+import { ageOn, formatCpf, formatPhone, isValidCpf, maskCpf, maskPhone } from './format';
 import { PatientDetail } from './PatientDetail';
 import { navigate } from './router';
 import { Avatar, EmptyState, Icon, Menu, PageHeader, Sheet, useUi } from './ui';
@@ -125,10 +125,14 @@ export function PatientSheet({ form, setForm, error, setError, onSaved }: {
   form: PatientForm; setForm: (f: PatientForm | null) => void; error: string; setError: (e: string) => void;
   onSaved: () => void;
 }) {
+  /** Mexeu no formulário: a mensagem de erro antiga some. */
+  const edit = (patch: Partial<PatientForm>) => { setForm({ ...form, ...patch }); if (error) setError(''); };
+
   async function save(event: FormEvent) {
     event.preventDefault();
     setError('');
-    if (form.cpf.trim() && !isValidCpf(form.cpf)) { setError('CPF inválido. Confira os números.'); return; }
+    if (!form.cpf.trim()) { setError('Informe o CPF do paciente.'); return; }
+    if (!isValidCpf(form.cpf)) { setError('CPF inválido. Confira os números.'); return; }
     try {
       const payload = {
         fullName: form.fullName, cpf: form.cpf || null, whatsapp: form.whatsapp || null,
@@ -144,18 +148,19 @@ export function PatientSheet({ form, setForm, error, setError, onSaved }: {
     <Sheet title={form.id ? 'Editar paciente' : 'Novo paciente'} onClose={() => { setForm(null); setError(''); }}>
       <form className="form" onSubmit={save}>
         <label>Nome completo<input required maxLength={120} value={form.fullName}
-                                   onChange={e => setForm({ ...form, fullName: e.target.value })} /></label>
+                                   onChange={e => edit({ fullName: e.target.value })} /></label>
         <div className="row">
           <label>WhatsApp<input inputMode="tel" maxLength={20} placeholder="(98) 99999-0000" value={form.whatsapp}
-                                onChange={e => setForm({ ...form, whatsapp: e.target.value })} /></label>
+                                onChange={e => edit({ whatsapp: maskPhone(e.target.value) })} /></label>
           <label>Nascimento<input type="date" value={form.birthDate} max={new Date().toISOString().slice(0, 10)}
-                                  onChange={e => setForm({ ...form, birthDate: e.target.value })} /></label>
+                                  onChange={e => edit({ birthDate: e.target.value })} /></label>
         </div>
-        <label>CPF (opcional, para recibo)<input inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
-                                                 value={form.cpf} onChange={e => setForm({ ...form, cpf: e.target.value })} /></label>
+        <label>CPF<input required inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
+                         value={form.cpf} onChange={e => edit({ cpf: maskCpf(e.target.value) })} /></label>
+        <p className="muted small">O CPF evita paciente duplicado (inclusive nos pedidos pelo site) e vai no recibo do IR.</p>
         <label>Observações administrativas
           <textarea maxLength={1000} placeholder="Ex.: prefere horários pela manhã; atendimento em casa"
-                    value={form.adminNotes} onChange={e => setForm({ ...form, adminNotes: e.target.value })} />
+                    value={form.adminNotes} onChange={e => edit({ adminNotes: e.target.value })} />
         </label>
         {error && <p className="error" role="alert">{error}</p>}
         <div className="sheet-actions">

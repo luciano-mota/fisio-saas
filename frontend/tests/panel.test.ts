@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dayChip, daySummary, firstName, greeting, longDayLabel, primaryAction, summaryText } from '../src/panel.ts';
+import { dayChip, daySummary, firstName, greeting, longDayLabel, primaryAction, sessionsCount, summaryText } from '../src/panel.ts';
 import { avatarInitials } from '../src/format.ts';
 
 test('saudação conforme a hora', () => {
@@ -30,9 +30,21 @@ test('resumo do dia ignora bloqueios e canceladas', () => {
     { kind: 'SESSION', status: 'SCHEDULED' }, { kind: 'SESSION', status: 'CONFIRMED' },
     { kind: 'SESSION', status: 'DONE' }, { kind: 'SESSION', status: 'CANCELED' }, { kind: 'BLOCK', status: 'SCHEDULED' }
   ]);
-  assert.deepEqual(s, { sessions: 3, toConfirm: 1, done: 1 });
+  assert.deepEqual(s, { sessions: 3, toConfirm: 1, pending: 0, done: 1 });
   assert.equal(summaryText(s), '3 sessões · 1 a confirmar · 1 realizada');
   assert.equal(summaryText(daySummary([])), 'Nenhuma sessão');
+});
+
+test('sessão que já passou não conta como "a confirmar"', () => {
+  const s = daySummary([
+    { kind: 'SESSION', status: 'SCHEDULED', startsAt: '2026-10-15T08:00:00' },
+    { kind: 'SESSION', status: 'CONFIRMED', startsAt: '2026-10-15T09:00:00' },
+    { kind: 'SESSION', status: 'SCHEDULED', startsAt: '2026-10-15T16:00:00' }
+  ], '2026-10-15T10:30');
+  assert.deepEqual(s, { sessions: 3, toConfirm: 1, pending: 2, done: 0 });
+  assert.equal(summaryText(s), '3 sessões · 1 a confirmar · 2 sem registro');
+  assert.equal(sessionsCount(1), '1 sessão');
+  assert.equal(sessionsCount(0), 'nenhuma sessão');
 });
 
 test('ação em destaque depende do horário, do status e do WhatsApp', () => {

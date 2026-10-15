@@ -5,7 +5,7 @@ import { addDays, dateOf, dayLabel, minutesBetween, nowLocal, timeOf, today, wee
 import { brl, moneyInput, parseMoney, sessionPaymentState } from './finance';
 import { confirmationMessage, renewalMessage, sessionsLabel } from './messages';
 import { PaymentSheet } from './PaymentSheet';
-import { dayChip, daySummary, longDayLabel, primaryAction, summaryText } from './panel';
+import { dayChip, daySummary, longDayLabel, primaryAction, sessionsCount, summaryText } from './panel';
 import { isoWeekday, MAX_OCCURRENCES, seriesDates, WEEKDAYS } from './recurrence';
 import { navigate } from './router';
 import { EmptyState, Icon, Menu, PageHeader, Sheet, useUi, type MenuEntry } from './ui';
@@ -156,7 +156,7 @@ export function AgendaTab({ owner, action }: { owner: boolean; action?: string }
           const count = daySummary(ofDay(day)).sessions;
           return (
             <button key={day} className={[view === 'dia' && day === date ? 'on' : '', day === today() ? 'today' : ''].join(' ')}
-                    aria-pressed={view === 'dia' && day === date} aria-label={`${dayLabel(day)}, ${count} sessões`}
+                    aria-pressed={view === 'dia' && day === date} aria-label={`${dayLabel(day)}, ${sessionsCount(count)}`}
                     onClick={() => { setDate(day); setView('dia'); }}>
               <span>{chip.day}</span><strong>{chip.number}</strong>
               <i className="dots">{Array.from({ length: Math.min(count, 3) }, (_, k) => <b key={k} />)}</i>
@@ -196,7 +196,7 @@ export function AgendaTab({ owner, action }: { owner: boolean; action?: string }
               {view === 'semana'
                 ? <button className="link-button strong" onClick={() => { setDate(day); setView('dia'); }}>{dayLabel(day)}</button>
                 : <strong>{day === today() ? 'Hoje' : dayLabel(day)}</strong>}
-              <span className="muted small">{summaryText(daySummary(dayItems))}</span>
+              <span className="muted small">{summaryText(daySummary(dayItems, nowLocal()))}</span>
             </div>
             {items !== null && dayItems.length === 0 && (view === 'dia'
               ? <EmptyState icon="calendar" title="Dia livre" text="Nada marcado para este dia.">
@@ -220,6 +220,7 @@ export function AgendaTab({ owner, action }: { owner: boolean; action?: string }
           <AgendaForm form={form} setForm={setForm} patients={patients} services={services}
                       onSubmit={e => save(e)} onSkipConflicts={() => save(null, true)}
                       onCancel={() => { setForm(null); setError(''); setConflicts([]); }}
+                      onEdit={() => { setError(''); setConflicts([]); }}
                       error={error} conflicts={conflicts} />
         </Sheet>
       )}
@@ -372,7 +373,7 @@ function PriceSheet({ item, onClose, onSaved }: { item: Appointment; onClose: ()
   }
   return (
     <Sheet title="Valor da sessão" onClose={onClose}>
-      <form className="form" onSubmit={submit}>
+      <form onInput={() => setError('')} className="form" onSubmit={submit}>
         <p className="muted small">{item.serviceName} de {item.patientName}. Use 0 para cortesia; em branco, a sessão não entra na cobrança.</p>
         <label>Valor<input inputMode="decimal" placeholder="Ex.: 90,00" value={price} onChange={e => setPrice(e.target.value)} /></label>
         {error && <p className="error-box" role="alert">{error}</p>}
@@ -385,9 +386,10 @@ function PriceSheet({ item, onClose, onSaved }: { item: Appointment; onClose: ()
   );
 }
 
-function AgendaForm({ form, setForm, patients, services, onSubmit, onSkipConflicts, onCancel, error, conflicts }: {
+function AgendaForm({ form, setForm, patients, services, onSubmit, onSkipConflicts, onCancel, onEdit, error, conflicts }: {
   form: Form; setForm: (f: Form) => void; patients: Patient[]; services: Service[];
-  onSubmit: (e: FormEvent) => void; onSkipConflicts: () => void; onCancel: () => void; error: string; conflicts: string[];
+  onSubmit: (e: FormEvent) => void; onSkipConflicts: () => void; onCancel: () => void; onEdit: () => void; error: string;
+  conflicts: string[];
 }) {
   const [search, setSearch] = useState('');
   const set = (patch: Partial<Form>) => setForm({ ...form, ...patch } as Form);
@@ -402,7 +404,7 @@ function AgendaForm({ form, setForm, patients, services, onSubmit, onSkipConflic
   };
 
   return (
-    <form className="form" onSubmit={onSubmit}>
+    <form className="form" onSubmit={onSubmit} onInput={onEdit}>
       {form.mode === 'sessao' && (
         <>
           {patients.length === 0 && (

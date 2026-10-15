@@ -106,7 +106,7 @@ export function PaymentSheet({ patientId: fixedPatient, target, onClose, onSaved
 
   return (
     <Sheet title="Registrar pagamento" onClose={onClose}>
-      <form className="form" onSubmit={submit}>
+      <form onInput={() => setError('')} className="form" onSubmit={submit}>
         {!fixedPatient && (
           <label>Paciente
             <select required value={patientId} onChange={e => setPatientId(e.target.value)}>

@@ -9,18 +9,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpSession;
 
 class ClinicAdminIntegrationTest extends IntegrationTest {
 
     @Test
     void loginComSenhaCorretaAbreSessaoEMeMostraAClinica() throws Exception {
+        // Sessão no banco (Spring Session): o navegador guarda só o cookie SESSION.
         var session = mvc.perform(post("/api/v1/auth/login").with(csrf())
                 .param("email", OWNER_A).param("password", PASSWORD))
             .andExpect(status().isOk())
-            .andReturn().getRequest().getSession();
+            .andReturn().getResponse().getCookie("SESSION");
 
-        mvc.perform(get("/api/v1/auth/me").session((MockHttpSession) session))
+        mvc.perform(get("/api/v1/auth/me").cookie(session))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.clinicName").value("Fisio Ana"))
             .andExpect(jsonPath("$.role").value("OWNER"));

@@ -58,7 +58,7 @@ public class SecurityConfig {
             .logout(logout -> logout
                 .logoutUrl("/api/v1/auth/logout")
                 .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID")
+                .deleteCookies("SESSION", "JSESSIONID")
                 .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204)))
             .exceptionHandling(errors -> errors
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))

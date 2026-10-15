@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { api, type ClinicProfile } from './api';
+import { maskPhone } from './format';
 import { navigate } from './router';
 import { BookingSettings } from './BookingSettings';
 import { PixSettings } from './PixSettings';
@@ -33,7 +34,7 @@ export function ClinicTab({ owner, profile, onSaved }: {
       <PageHeader title="Clínica"
         subtitle={<>Logo, cores, fotos e textos do site ficam em{' '}
           <a href="/painel/site" onClick={e => { e.preventDefault(); navigate('/painel/site'); }}>Site</a>.</>} />
-      <form onSubmit={save} className="stack">
+      <form onInput={() => setError('')} onSubmit={save} className="stack">
         <fieldset disabled={!owner} className="stack">
           <div className="card form">
             <h3>Dados da clínica</h3>
@@ -46,7 +47,7 @@ export function ClinicTab({ owner, profile, onSaved }: {
             </div>
             <div className="row">
               <label>WhatsApp<input inputMode="tel" maxLength={20} placeholder="(98) 99999-0000" value={text('whatsapp')}
-                                    onChange={e => set('whatsapp', e.target.value)} /></label>
+                                    onChange={e => set('whatsapp', maskPhone(e.target.value))} /></label>
               <label>CPF/CNPJ (para recibos, não aparece no site)<input maxLength={18} value={text('document')}
                                                                        onChange={e => set('document', e.target.value)} /></label>
             </div>

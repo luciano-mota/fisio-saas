@@ -25,7 +25,7 @@ export function Login({ onLogged, signupEnabled }: { onLogged: () => void; signu
 
   return (
     <main className="login">
-      <form className="card login-card" onSubmit={submit}>
+      <form onInput={() => setError('')} className="card login-card" onSubmit={submit}>
         <span className="brand-mark" aria-hidden="true"><Icon name="calendar" size={22} /></span>
         <h1>Entrar no painel</h1>
         <p className="muted">Agenda, pacientes, pacotes e o site da sua clínica, num lugar só.</p>
