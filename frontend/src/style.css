@@ -526,3 +526,37 @@ h4 { margin: 8px 0 0; font-size: .98rem; }
 .mood-swatch i { width: 30px; height: 14px; border-radius: 7px; background: var(--cta); }
 .fine-tune { border-top: 1px solid var(--border); padding-top: 12px; }
 .fine-tune summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+
+/* Horário de atendimento */
+.booking-block { margin-top: 16px; }
+.hours { display: grid; gap: 8px; }
+.hours-day { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 10px 0; border-top: 1px solid var(--border); }
+.hours-list { display: grid; gap: 6px; }
+.hours-item { display: flex; align-items: center; gap: 6px; }
+.hours-item input { width: auto; min-width: 0; flex: 1; max-width: 140px; }
+.hours-day > .small-button { justify-self: start; }
+@media (min-width: 640px) {
+  .hours-day { grid-template-columns: 110px 1fr auto; align-items: center; }
+}
+
+/* Solicitações do site */
+.badge { margin-left: auto; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 99px; display: inline-grid; place-items: center;
+  background: #dc2626; color: #fff; font-size: .75rem; font-weight: 800; }
+.bottom-nav a { position: relative; }
+.badge.dot { position: absolute; top: 2px; left: 50%; margin-left: 8px; min-width: 18px; height: 18px; font-size: .68rem; padding: 0 5px; }
+.request-banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; text-decoration: none; color: #5b3a06; font-weight: 500; }
+.request-banner .icon:last-child { margin-left: auto; }
+.request-card { background: #fff; border: 1px solid var(--border); border-left: 4px solid #f59e0b; border-radius: var(--radius); padding: 16px;
+  box-shadow: var(--shadow-sm); display: grid; gap: 12px; }
+.request-card.inactive { border-left-color: #cbd5e1; opacity: .75; }
+.request-head { display: grid; grid-template-columns: 72px 1fr; gap: 12px; }
+.req-time { display: grid; align-content: start; line-height: 1.2; }
+.req-time strong { font-size: 1.15rem; }
+.req-time span { color: var(--muted); font-size: .8rem; }
+.request-head .meta a { text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.match { background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: .9rem; }
+.match p { margin: 0 0 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.match fieldset { gap: 8px; }
+.pill.status-req-pending { background: #fef3c7; color: #78350f; }
+.pill.status-req-accepted { background: #dcfce7; color: #14532d; }
+.pill.status-req-declined, .pill.status-req-expired { background: #e5e7eb; color: #374151; }

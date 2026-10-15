@@ -59,12 +59,15 @@ public class AppointmentController {
     private final CurrentClinic current;
     private final Agenda agenda;
     private final PackageLedger ledger;
+    private final Sessions sessions;
 
-    public AppointmentController(JdbcTemplate jdbc, CurrentClinic current, Agenda agenda, PackageLedger ledger) {
+    public AppointmentController(JdbcTemplate jdbc, CurrentClinic current, Agenda agenda, PackageLedger ledger,
+                                 Sessions sessions) {
         this.jdbc = jdbc;
         this.current = current;
         this.agenda = agenda;
         this.ledger = ledger;
+        this.sessions = sessions;
     }
 
     /** Sessões e bloqueios entre as datas (inclusive), em ordem de horário. */
@@ -88,20 +91,8 @@ public class AppointmentController {
     @Transactional
     public AppointmentView create(Authentication auth, @Valid @RequestBody SessionRequest body) {
         UUID clinicId = current.requireOwner(auth).clinicId();
-        agenda.requireOwnPatient(clinicId, body.patientId());
-        int defaultMinutes = agenda.requireOwnService(clinicId, body.serviceId());
-        int minutes = body.durationMinutes() == null ? defaultMinutes : body.durationMinutes();
-        Slot slot = new Slot(body.startsAt(), body.startsAt().plusMinutes(minutes));
-        agenda.requireFree(clinicId, slot, null);
-
-        ZoneId zone = agenda.zone(clinicId);
-        UUID id = UUID.randomUUID();
-        agenda.write(() -> jdbc.update("""
-            INSERT INTO appointments(id, clinic_id, kind, patient_id, service_id, starts_at, ends_at, notes)
-            VALUES (?, ?, 'SESSION', ?, ?, ?, ?, ?)""",
-            id, clinicId, body.patientId(), body.serviceId(), agenda.toInstant(slot.startsAt(), zone),
-            agenda.toInstant(slot.endsAt(), zone), blankToNull(body.notes())));
-        ledger.linkNew(clinicId, id);
+        UUID id = sessions.create(clinicId, body.patientId(), body.serviceId(), body.startsAt(), body.durationMinutes(),
+            body.notes());
         return agenda.find(clinicId, id);
     }
 

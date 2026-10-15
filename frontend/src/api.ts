@@ -49,6 +49,17 @@ export type PatientPackage = {
   used: number; scheduled: number; remaining: number; expired: boolean; lowBalance: boolean;
 };
 
+export type OpeningHours = { weekday: number; start: string; end: string };
+export type BookingConfig = {
+  enabled: boolean; minNoticeHours: number; maxDays: number; holdHours: number; stepMinutes: number; hours: OpeningHours[];
+};
+export type PatientMatch = { id: string; fullName: string; whatsapp: string | null; birthDate: string | null; active: boolean };
+export type BookingRequest = {
+  id: string; serviceId: string; serviceName: string; servicePrice: number | null; startsAt: string; endsAt: string;
+  fullName: string; cpf: string; whatsapp: string; birthDate: string | null; notes: string | null;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CANCELED'; holdUntil: string; createdAt: string;
+  declineReason: string | null; appointmentId: string | null; patient: PatientMatch | null; suggestions: PatientMatch[];
+};
 export type PublicPhoto = { id: string; caption: string | null; width: number; height: number };
 export type PublicPackage = { id: string; name: string; sessionCount: number; price: number | null; validityDays: number | null };
 export type PublicService = {
@@ -64,6 +75,7 @@ export type PublicClinic = {
     testimonials: { authorName: string; text: string }[]; faqs: { question: string; answer: string }[];
   };
   services: PublicService[];
+  booking: { enabled: boolean; hours: OpeningHours[] };
 };
 
 async function csrf(): Promise<string> {

@@ -53,6 +53,14 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   pagamento ficam para o agendamento), quem cuida de você + formação, galeria, como agendar, depoimentos, perguntas
   frequentes, onde atendo com mapa e rodapé. A logo aparece só na barra do topo e no rodapé. Botão "Agendar pelo
   WhatsApp" com mensagem pronta (por serviço) e botão flutuante no celular.
+- **Agendamento pelo site** (sem login do paciente): horário de atendimento por dia da semana (vários intervalos),
+  antecedência mínima, dias à frente, intervalo entre horários e por quanto tempo o pedido segura o horário
+  (padrão 24 h). O site mostra só horários livres (tira sessões, bloqueios e pedidos pendentes) e pede nome,
+  **CPF obrigatório** (validado), WhatsApp e consentimento; campo anti-robô e limite por IP e por CPF. O painel
+  recebe em **Solicitações** (aviso na tela Hoje): o CPF acha o paciente já cadastrado — sem duplicar — e mostra o
+  que mudou (nome/WhatsApp) para a clínica decidir se atualiza; paciente antigo sem CPF é sugerido pelo WhatsApp;
+  CPF novo cria o cadastro ao aceitar. Aceitar põe a sessão na agenda (usa o pacote do paciente se houver) e abre a
+  mensagem pronta no WhatsApp; recusar guarda o motivo. O site nunca revela se um CPF é paciente da clínica.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do
   site são apagadas de verdade ao remover (não são histórico e podem mostrar pessoas — LGPD).
 
@@ -95,7 +103,9 @@ regra da falta sem reescrever o passado, desfazer, venda depois de agendar, ence
 recusado pela API e pelo banco, isolamento, STAFF); logo (tipo pela assinatura, tamanho e dimensões, SVG/GIF
 recusados, isolamento, vitrine desativada, STAFF); site (capa única, galeria até 6, ordem, foto JPEG com EXIF removido,
 foto apagada de verdade, depoimento só com autorização e seção ligada, perguntas, textos de confiança, isolamento
-de fotos/depoimentos/perguntas, STAFF só consulta).
+de fotos/depoimentos/perguntas, STAFF só consulta); agendamento pelo site (horários livres, pedido e aceite, CPF
+existente sem duplicar, paciente antigo sem CPF ligado, recusa/expiração, limites por CPF e IP, robô, CSRF,
+isolamento entre clínicas, STAFF só consulta).
 
 ## API
 
@@ -116,7 +126,10 @@ de fotos/depoimentos/perguntas, STAFF só consulta).
 | POST · GET · DELETE | `/api/v1/clinic/logo` | OWNER · logado · OWNER |
 | GET · POST (multipart `file`, `kind`=COVER/GALLERY) · PUT `/{id}` (legenda) · POST `/{id}/move` · DELETE `/{id}` · GET `/{id}/image` | `/api/v1/clinic/photos` | logado · OWNER |
 | GET · POST · PUT `/{id}` · POST `/{id}/move` · DELETE `/{id}` | `/api/v1/clinic/testimonials` · `/api/v1/clinic/faqs` | logado · OWNER |
-| GET | `/api/v1/public/clinics/{slug}` · `/{slug}/logo` · `/{slug}/photos/{id}` | público |
+| GET · PUT | `/api/v1/clinic/booking` (horário de atendimento e regras do agendamento) | logado · OWNER |
+| GET `?status=PENDING\|ALL` · GET `/count` · GET `/{id}` · POST `/{id}/accept` · POST `/{id}/decline` | `/api/v1/booking-requests` | logado · OWNER |
+| GET | `/api/v1/public/clinics/{slug}` · `/{slug}/logo` · `/{slug}/photos/{id}` · `/{slug}/slots?serviceId&from&to` | público |
+| POST | `/api/v1/public/clinics/{slug}/booking-requests` (com CSRF) | público |
 
 ## Produção (Oracle Cloud Always Free)
 
@@ -138,8 +151,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Próximos passos (ordem sugerida)
 
-1. Horário de atendimento e horários livres (base do agendamento online).
-2. Agendamento online pelo site, sem Pix (solicitação → aprovação da clínica → sessão na agenda).
-3. Pix com QR Code estático + envio de comprovante.
-4. Site com IA (Gemini): conteúdo e design em JSON validado, rascunho revisado pelo admin, sem dados de pacientes.
-5. Pagamentos: maquininhas e taxas (bruto/taxa/líquido).
+1. Pagamentos: lançamentos, maquininhas e taxas (bruto/taxa/líquido), quem está devendo.
+2. Pix com QR Code estático + envio de comprovante no agendamento.
+3. Recibo para IR.
+4. Conta: troca de senha, colaboradores, cadastro de novas clínicas; termos de uso e privacidade (LGPD).
+5. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.

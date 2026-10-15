@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, whatsappLink, type Appointment, type ClinicProfile, type Patient, type PatientPackage, type Service,
+import { api, whatsappLink, type Appointment, type BookingConfig, type ClinicProfile, type Patient, type PatientPackage, type Service,
   type SitePhoto } from './api';
 import { AppointmentCard } from './Agenda';
 import { addDays, dateOf, nowLocal, today } from './dates';
@@ -11,7 +11,7 @@ import { EmptyState, Icon, PageHeader, type IconName } from './ui';
 type Setup = { done: boolean; label: string; to: string };
 
 /** Tela inicial: o dia de hoje, quem falta confirmar, pacotes acabando e, no começo, os primeiros passos. */
-export function TodayTab({ owner, profile }: { owner: boolean; profile: ClinicProfile | null }) {
+export function TodayTab({ owner, profile, pendingRequests }: { owner: boolean; profile: ClinicProfile | null; pendingRequests: number }) {
   const day = today();
   const [items, setItems] = useState<Appointment[] | null>(null);
   const [lowBalance, setLowBalance] = useState<PatientPackage[]>([]);
@@ -27,13 +27,15 @@ export function TodayTab({ owner, profile }: { owner: boolean; profile: ClinicPr
   useEffect(() => {
     if (!owner || !profile) return;
     Promise.all([
-      api<Service[]>('/api/v1/services'), api<SitePhoto[]>('/api/v1/clinic/photos'), api<Patient[]>('/api/v1/patients')
-    ]).then(([services, photos, patients]) => setSetup([
+      api<Service[]>('/api/v1/services'), api<SitePhoto[]>('/api/v1/clinic/photos'), api<Patient[]>('/api/v1/patients'),
+      api<BookingConfig>('/api/v1/clinic/booking')
+    ]).then(([services, photos, patients, booking]) => setSetup([
       { done: !!(profile.whatsapp && profile.professionalName), label: 'Preencher os dados da clínica e o WhatsApp', to: '/painel/clinica' },
       { done: services.some(s => s.active), label: 'Cadastrar os serviços que você oferece', to: '/painel/catalogo' },
       { done: !!profile.logoVersion, label: 'Enviar a logo e escolher as cores', to: '/painel/site' },
       { done: photos.length > 0, label: 'Colocar fotos no site', to: '/painel/site' },
       { done: profile.publicPageEnabled, label: 'Ativar a página pública', to: '/painel/clinica' },
+      { done: booking.enabled, label: 'Cadastrar o horário de atendimento e ativar o agendamento pelo site', to: '/painel/clinica' },
       { done: patients.length > 0, label: 'Cadastrar seus pacientes', to: '/painel/pacientes/novo' }
     ])).catch(() => undefined);
   }, [owner, profile]);
@@ -59,6 +61,15 @@ export function TodayTab({ owner, profile }: { owner: boolean; profile: ClinicPr
               tone={lowBalance.length > 0 ? 'warn' : undefined}
               onClick={() => document.getElementById('pacotes-acabando')?.scrollIntoView({ behavior: 'smooth' })} />
       </div>
+
+      {pendingRequests > 0 && (
+        <a className="banner request-banner" href="/painel/solicitacoes"
+           onClick={e => { e.preventDefault(); navigate('/painel/solicitacoes'); }}>
+          <Icon name="bell" size={18} />
+          <strong>{pendingRequests === 1 ? '1 pedido de horário pelo site' : `${pendingRequests} pedidos de horário pelo site`}</strong>
+          <span>aguardando sua resposta</span><Icon name="right" size={18} />
+        </a>
+      )}
 
       {owner && (
         <div className="quick">
