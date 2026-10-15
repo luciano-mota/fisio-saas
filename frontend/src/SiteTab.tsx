@@ -141,20 +141,22 @@ function PhotosSection({ owner }: { owner: boolean }) {
   const { toast, confirm } = useUi();
   const [photos, setPhotos] = useState<SitePhoto[]>([]);
   const [busy, setBusy] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<{ kind: 'COVER' | 'GALLERY'; message: string } | null>(null);
+  // Prévia local enquanto a foto é preparada e enviada (aparece na hora, antes da resposta do servidor).
+  const [pending, setPending] = useState<{ kind: 'COVER' | 'GALLERY'; urls: string[] } | null>(null);
   const load = useCallback(() => api<SitePhoto[]>('/api/v1/clinic/photos').then(setPhotos), []);
   useEffect(() => { load().catch(() => undefined); }, [load]);
 
   const cover = photos.find(p => p.kind === 'COVER');
   const gallery = photos.filter(p => p.kind === 'GALLERY');
 
-  async function run(label: string, action: () => Promise<unknown>) {
+  async function run(label: string, action: () => Promise<unknown>, kind: 'COVER' | 'GALLERY' = 'GALLERY') {
     setBusy(label);
-    setError('');
+    setError(null);
     try {
       await action();
     } catch (e) {
-      setError((e as Error).message);
+      setError({ kind, message: (e as Error).message });
     } finally {
       setBusy('');
       await load().catch(() => undefined);
@@ -164,15 +166,23 @@ function PhotosSection({ owner }: { owner: boolean }) {
   function send(files: FileList | null, kind: 'COVER' | 'GALLERY') {
     const list = Array.from(files ?? []).slice(0, kind === 'COVER' ? 1 : MAX_GALLERY - gallery.length);
     if (!list.length) return;
+    const urls = list.map(file => URL.createObjectURL(file));
+    setPending({ kind, urls });
     run('Enviando…', async () => {
-      for (const file of list) await uploadPhoto(await preparePhoto(file), kind);
-      toast(list.length === 1 ? 'Foto enviada' : `${list.length} fotos enviadas`);
-    });
+      try {
+        for (const file of list) await uploadPhoto(await preparePhoto(file), kind);
+        toast(kind === 'COVER' ? 'Capa enviada' : list.length === 1 ? 'Foto enviada' : `${list.length} fotos enviadas`);
+      } finally {
+        setPending(null);
+        urls.forEach(url => URL.revokeObjectURL(url));
+      }
+    }, kind);
   }
+  const coverPreview = pending?.kind === 'COVER' ? pending.urls[0] : null;
 
   async function remove(photo: SitePhoto) {
     if (!await confirm('Remover esta foto? Ela é apagada e some do site.', { confirmLabel: 'Remover foto', danger: true })) return;
-    run('Removendo…', async () => { await api(`/api/v1/clinic/photos/${photo.id}`, 'DELETE'); toast('Foto removida'); });
+    run('Removendo…', async () => { await api(`/api/v1/clinic/photos/${photo.id}`, 'DELETE'); toast('Foto removida'); }, photo.kind);
   }
 
   return (
@@ -185,8 +195,10 @@ function PhotosSection({ owner }: { owner: boolean }) {
 
       <h4>Capa</h4>
       <div className="photo-cover">
-        <div className="photo-frame cover">
-          {cover ? <img src={`/api/v1/clinic/photos/${cover.id}/image`} alt="Foto de capa" /> : <span className="muted small">Sem capa</span>}
+        <div className={coverPreview ? 'photo-frame cover sending' : 'photo-frame cover'}>
+          {coverPreview ? <><img src={coverPreview} alt="" /><span className="sending-label">Enviando…</span></>
+            : cover ? <img src={`/api/v1/clinic/photos/${cover.id}/image`} alt="Foto de capa" />
+              : <span className="muted small">Sem capa</span>}
         </div>
         {owner && (
           <div className="actions">
@@ -199,6 +211,7 @@ function PhotosSection({ owner }: { owner: boolean }) {
           </div>
         )}
       </div>
+      {error?.kind === 'COVER' && <p className="error-box" role="alert">{error.message}</p>}
       <p className="muted small">Aparece no topo do site. De preferência na vertical, com você ou o espaço.</p>
 
       <h4>Galeria <span className="muted small">({gallery.length} de {MAX_GALLERY})</span></h4>
@@ -237,8 +250,13 @@ function PhotosSection({ owner }: { owner: boolean }) {
           </label>
         </div>
       )}
-      {busy && <p className="muted small" role="status">{busy}</p>}
-      {error && <p className="error" role="alert">{error}</p>}
+      {pending?.kind === 'GALLERY' && (
+        <ul className="photo-grid">{pending.urls.map(url => (
+          <li key={url}><div className="photo-frame sending"><img src={url} alt="" /><span className="sending-label">Enviando…</span></div></li>
+        ))}</ul>
+      )}
+      {busy && !pending && <p className="muted small" role="status">{busy}</p>}
+      {error?.kind === 'GALLERY' && <p className="error-box" role="alert">{error.message}</p>}
     </div>
   );
 }

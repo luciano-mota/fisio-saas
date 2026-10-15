@@ -41,9 +41,14 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   mensagem pronta ("Olá, Maria! Confirmando sua sessão de Pilates amanhã (qui, 15/10) às 8h. Responda SIM…") e
   **Lembretes de amanhã**, que abre um paciente por vez.
 - Página pública `/c/{slug}`: site da clínica montado a partir da logo, das cores e **dos serviços** que ela oferece.
-  Os serviços definem o **estilo** (Sereno: Pilates/estética; Dinâmico: esportiva/ortopedia; Acolhedor:
-  infantil/idosos/domiciliar; Clínico: respiratória/neuro/pélvica), com **par de fontes** do Google Fonts, formas,
-  ícones por serviço e frase de destaque. Seções (cada uma só aparece se tiver conteúdo): topo com a foto de capa e
+  **4 modelos** com estrutura diferente (Clássico: texto e foto lado a lado; Imersivo: foto em tela cheia e seções
+  na cor da clínica; Editorial: título grande, foto larga e serviços numerados; Acolhedor: topo colorido, foto
+  redonda e cartões) e **3 climas** (Claro, Suave, Escuro). Fundo e texto saem das cores da clínica — nada de
+  branco/preto puros — com contraste WCAG conferido em teste para qualquer paleta. Escolha no painel com miniaturas
+  feitas com a foto e as cores da clínica e "Ver prévia" (`/c/{slug}?modelo=&clima=`) antes de salvar.
+  Os serviços sugerem o modelo e a **personalidade** (Sereno: Pilates/estética; Dinâmico: esportiva/ortopedia;
+  Acolhedor: infantil/idosos/domiciliar; Clínico: respiratória/neuro/pélvica), com **par de fontes** do Google
+  Fonts, ícones por serviço e frase de destaque. Seções (cada uma só aparece se tiver conteúdo): topo com a foto de capa e
   o nome da profissional, faixa com CREFITO/atendimento em casa/horários, **serviços em lista** (sem preço: preço e
   pagamento ficam para o agendamento), quem cuida de você + formação, galeria, como agendar, depoimentos, perguntas
   frequentes, onde atendo com mapa e rodapé. A logo aparece só na barra do topo e no rodapé. Botão "Agendar pelo

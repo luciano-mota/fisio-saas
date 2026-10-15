@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { logoUrl, whatsappLink, type PublicClinic, type PublicPhoto, type PublicService } from './api';
 import { themeVariables } from './color';
 import { formatPhone } from './format';
@@ -6,6 +6,7 @@ import { SiteIcon } from './SiteIcons';
 import { bookingMessage, educationItems, mapEmbedUrl, mapLinkUrl, photoUrl } from './siteContent';
 import { autoHeadline, autoSubtitle, FONTS, fontsUrl, resolveFonts, resolveStyle, serviceIcon, STYLES,
   type FontsId, type StyleId } from './siteStyle';
+import { resolveMood, resolveTemplate, siteColors, siteColorVariables, type TemplateId } from './siteTheme';
 import './site.css';
 
 /** Iniciais para quando a clínica ainda não enviou a logo ("Clínica Bem Estar" → "CB"). */
@@ -51,13 +52,30 @@ function Brand({ clinic, logo }: { clinic: PublicClinic; logo: string | null }) 
     : <span className="brand-monogram" aria-hidden="true">{initials(clinic.displayName)}</span>;
 }
 
+/**
+ * Prévia do painel: /c/{slug}?modelo=imersivo&clima=escuro mostra o site como ficaria, sem salvar. Só valores das
+ * listas fechadas são aceitos (o resto cai no salvo).
+ */
+function previewOverrides(clinic: PublicClinic): PublicClinic {
+  const params = new URLSearchParams(window.location.search);
+  if (!['modelo', 'clima', 'estilo', 'fontes'].some(k => params.has(k))) return clinic;
+  return {
+    ...clinic,
+    site: {
+      ...clinic.site,
+      template: params.get('modelo') ?? clinic.site.template, mood: params.get('clima') ?? clinic.site.mood,
+      style: params.get('estilo') ?? clinic.site.style, fonts: params.get('fontes') ?? clinic.site.fonts
+    }
+  };
+}
+
 export function PublicPage({ slug }: { slug: string }) {
   const [clinic, setClinic] = useState<PublicClinic | null | undefined>(undefined);
 
   useEffect(() => {
     fetch(`/api/v1/public/clinics/${slug}`)
       .then(res => (res.ok ? res.json() : null))
-      .then((data: PublicClinic | null) => setClinic(data))
+      .then((data: PublicClinic | null) => setClinic(data && previewOverrides(data)))
       .catch(() => setClinic(null));
   }, [slug]);
 
@@ -66,15 +84,23 @@ export function PublicPage({ slug }: { slug: string }) {
   return <ClinicSite clinic={clinic} />;
 }
 
+/** Quais seções ficam na faixa forte (cor da clínica, texto claro) em cada modelo. */
+const BAND_SECTIONS: Record<TemplateId, string[]> = {
+  classico: [], imersivo: ['servicos', 'depoimentos'], editorial: [], acolhedor: ['como']
+};
+
 /**
  * Site da clínica: serviços em lista (preço e pagamento ficam para o agendamento), fotos, formação, depoimentos,
- * perguntas e onde atende. O estilo (sereno, dinâmico, acolhedor, clínico) define fontes, formas e textos.
+ * perguntas e onde atende. O MODELO define a estrutura (clássico, imersivo, editorial, acolhedor), o CLIMA o fundo
+ * e o texto (claro, suave, escuro, sempre das cores da clínica) e a PERSONALIDADE (estilo) as frases e detalhes.
  * Cada seção só aparece se tiver conteúdo.
  */
 export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
   const site = clinic.site;
   const style: StyleId = resolveStyle(site.style, clinic.services, clinic.about);
   const fonts: FontsId = resolveFonts(site.fonts, style);
+  const template = resolveTemplate(site.template, style);
+  const mood = resolveMood(site.mood);
   useFonts(fonts);
   const logo = logoUrl(clinic.logoVersion, clinic.slug);
   useBranding(clinic, logo);
@@ -90,12 +116,39 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
   const hasContact = !!(clinic.address || site.serviceArea || site.hours || hello);
   const vars = useMemo(() => ({
     ...themeVariables(clinic.theme),
+    ...siteColorVariables(siteColors(clinic.theme, mood)),
     '--font-heading': `'${FONTS[fonts].heading}', Georgia, serif`,
     '--font-body': `'${FONTS[fonts].body}', system-ui, sans-serif`
-  }) as CSSProperties, [clinic.theme, fonts]);
+  }) as CSSProperties, [clinic.theme, fonts, mood]);
+  // Alterna fundo papel / papel tingido entre as seções, e usa a faixa forte onde o modelo pede.
+  const tone = (() => {
+    let alt = false;
+    return (id: string) => {
+      if (BAND_SECTIONS[template].includes(id)) return 'section band';
+      alt = !alt;
+      return alt ? 'section' : 'section alt';
+    };
+  })();
+
+  const cta = hello && (
+    <a className="btn btn-primary btn-lg" href={hello} target="_blank" rel="noreferrer">
+      <SiteIcon name="whatsapp" size={20} /> Agendar pelo WhatsApp
+    </a>
+  );
+  const heroText = (
+    <div className="hero-text">
+      <p className="eyebrow">{STYLES[style].eyebrow}</p>
+      <h1>{headline}</h1>
+      <p className="hero-sub">{subtitle}</p>
+      <div className="hero-actions">
+        {cta}
+        {clinic.services.length > 0 && <a className="btn-text" href="#servicos">Ver serviços <SiteIcon name="arrow" size={18} /></a>}
+      </div>
+    </div>
+  );
 
   return (
-    <div className={`site style-${style}`} style={vars}>
+    <div className={`site tpl-${template} mood-${mood} style-${style}`} style={vars}>
       <a className="skip" href="#servicos">Pular para os serviços</a>
       <header className="site-nav">
         <div className="wrap nav-inner">
@@ -113,25 +166,7 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
         </div>
       </header>
 
-      <section className={site.cover ? 'hero has-cover' : 'hero'} id="topo">
-        <div className="hero-bg" aria-hidden="true" />
-        <div className="wrap hero-inner">
-          <div className="hero-text">
-            <p className="eyebrow">{STYLES[style].eyebrow}</p>
-            <h1>{headline}</h1>
-            <p className="hero-sub">{subtitle}</p>
-            <div className="hero-actions">
-              {hello && (
-                <a className="btn btn-primary btn-lg" href={hello} target="_blank" rel="noreferrer">
-                  <SiteIcon name="whatsapp" size={20} /> Agendar pelo WhatsApp
-                </a>
-              )}
-              {clinic.services.length > 0 && <a className="btn-text" href="#servicos">Ver serviços <SiteIcon name="arrow" size={18} /></a>}
-            </div>
-          </div>
-          <HeroVisual clinic={clinic} />
-        </div>
-      </section>
+      <Hero template={template} clinic={clinic} text={heroText} />
 
       {(clinic.crefito || site.hours || homeCare) && (
         <section className="facts" aria-label="Informações rápidas">
@@ -152,21 +187,23 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
 
       <main>
         {clinic.services.length > 0 && (
-          <section className="section" id="servicos" aria-labelledby="titulo-servicos">
+          <section className={tone('servicos')} id="servicos" aria-labelledby="titulo-servicos">
             <div className="wrap">
               <div className="section-head">
                 <p className="eyebrow">Atendimentos</p>
                 <h2 id="titulo-servicos">Como posso ajudar</h2>
               </div>
               <ul className="services">
-                {clinic.services.map(service => <ServiceItem key={service.id} service={service} link={service.onlineBooking ? book(service.name) : null} />)}
+                {clinic.services.map((service, i) => (
+                  <ServiceItem key={service.id} index={i} service={service} link={service.onlineBooking ? book(service.name) : null} />
+                ))}
               </ul>
             </div>
           </section>
         )}
 
         {hasAbout && (
-          <section className="section section-tint" id="sobre" aria-labelledby="titulo-sobre">
+          <section className={tone('sobre')} id="sobre" aria-labelledby="titulo-sobre">
             <div className="wrap about">
               <div className="about-text">
                 <p className="eyebrow">Quem cuida de você</p>
@@ -185,7 +222,7 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
         )}
 
         {site.gallery.length > 0 && (
-          <section className="section" aria-labelledby="titulo-galeria">
+          <section className={tone('galeria')} aria-labelledby="titulo-galeria">
             <div className="wrap">
               <div className="section-head">
                 <p className="eyebrow">Por dentro</p>
@@ -204,7 +241,7 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
         )}
 
         {hello && (
-          <section className="section section-tint" aria-labelledby="titulo-como">
+          <section className={tone('como')} aria-labelledby="titulo-como">
             <div className="wrap">
               <div className="section-head">
                 <p className="eyebrow">Simples assim</p>
@@ -220,7 +257,7 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
         )}
 
         {site.testimonials.length > 0 && (
-          <section className="section" aria-labelledby="titulo-depoimentos">
+          <section className={tone('depoimentos')} aria-labelledby="titulo-depoimentos">
             <div className="wrap">
               <div className="section-head">
                 <p className="eyebrow">Depoimentos</p>
@@ -239,7 +276,7 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
         )}
 
         {site.faqs.length > 0 && (
-          <section className="section" id="duvidas" aria-labelledby="titulo-duvidas">
+          <section className={tone('duvidas')} id="duvidas" aria-labelledby="titulo-duvidas">
             <div className="wrap narrow">
               <div className="section-head">
                 <p className="eyebrow">Dúvidas frequentes</p>
@@ -258,7 +295,7 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
         )}
 
         {hasContact && (
-          <section className="section section-tint" id="contato" aria-labelledby="titulo-contato">
+          <section className={tone('contato')} id="contato" aria-labelledby="titulo-contato">
             <div className={site.showMap && clinic.address ? 'wrap contact with-map' : 'wrap contact'}>
               <div>
                 <p className="eyebrow">Onde atendo</p>
@@ -279,11 +316,7 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
                       <a href={hello} target="_blank" rel="noreferrer">{formatPhone(clinic.whatsapp)}</a></div></li>
                   )}
                 </ul>
-                {hello && (
-                  <a className="btn btn-primary btn-lg" href={hello} target="_blank" rel="noreferrer">
-                    <SiteIcon name="whatsapp" size={20} /> Agendar pelo WhatsApp
-                  </a>
-                )}
+                {cta}
               </div>
               {site.showMap && clinic.address && (
                 <iframe className="map" title={`Mapa: ${clinic.address}`} src={mapEmbedUrl(clinic.address)}
@@ -323,8 +356,8 @@ function Photo({ slug, photo, sizes, eager }: { slug: string; photo: PublicPhoto
   );
 }
 
-/** Foto de capa; sem ela, um cartão com a profissional e os principais atendimentos (sem repetir a logo). */
-function HeroVisual({ clinic }: { clinic: PublicClinic }) {
+/** Topo do site: cada modelo organiza texto e foto de um jeito. */
+function Hero({ template, clinic, text }: { template: TemplateId; clinic: PublicClinic; text: ReactNode }) {
   const cover = clinic.site.cover;
   const badge = clinic.professionalName && (
     <p className="hero-badge">
@@ -332,14 +365,43 @@ function HeroVisual({ clinic }: { clinic: PublicClinic }) {
       <span>Fisioterapeuta{clinic.crefito && ` · CREFITO ${clinic.crefito}`}</span>
     </p>
   );
-  if (cover) {
+  if (template === 'imersivo') {
+    // Foto em tela cheia com o texto por cima (sem foto: faixa na cor da clínica).
     return (
-      <div className="hero-visual">
-        <div className="hero-photo"><Photo slug={clinic.slug} photo={cover} sizes="(min-width: 860px) 45vw, 100vw" eager /></div>
-        {badge}
-      </div>
+      <section className={cover ? 'hero hero-immersive has-cover' : 'hero hero-immersive'} id="topo">
+        {cover && <div className="hero-media"><Photo slug={clinic.slug} photo={cover} sizes="100vw" eager /></div>}
+        <div className="hero-shade" aria-hidden="true" />
+        <div className="wrap hero-inner">{text}{badge}</div>
+      </section>
     );
   }
+  if (template === 'editorial') {
+    // Título grande centralizado e a foto larga logo abaixo.
+    return (
+      <section className="hero hero-editorial" id="topo">
+        <div className="wrap hero-inner">{text}</div>
+        {cover && (
+          <div className="wrap hero-wide">
+            <div className="hero-photo"><Photo slug={clinic.slug} photo={cover} sizes="(min-width: 1140px) 1100px, 100vw" eager /></div>
+            {badge}
+          </div>
+        )}
+      </section>
+    );
+  }
+  const visual = cover
+    ? <div className="hero-visual"><div className="hero-photo"><Photo slug={clinic.slug} photo={cover} sizes="(min-width: 860px) 45vw, 100vw" eager /></div>{badge}</div>
+    : <HeroPanel clinic={clinic} badge={badge} />;
+  return (
+    <section className={template === 'acolhedor' ? 'hero hero-warm' : 'hero hero-split'} id="topo">
+      <div className="hero-bg" aria-hidden="true" />
+      <div className="wrap hero-inner">{text}{visual}</div>
+    </section>
+  );
+}
+
+/** Sem foto de capa: cartão com a profissional e os principais atendimentos (sem repetir a logo). */
+function HeroPanel({ clinic, badge }: { clinic: PublicClinic; badge: ReactNode }) {
   const top = clinic.services.slice(0, 4);
   if (top.length === 0 && !badge) return null;
   return (
@@ -357,11 +419,12 @@ function HeroVisual({ clinic }: { clinic: PublicClinic }) {
 }
 
 /** Serviço em lista: o que é e quanto dura. Preço e forma de pagamento ficam para o agendamento. */
-function ServiceItem({ service, link }: { service: PublicService; link: string | null }) {
+function ServiceItem({ service, link, index }: { service: PublicService; link: string | null; index: number }) {
   return (
     <li className="service">
+      <span className="service-num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
       <span className="service-icon"><SiteIcon name={serviceIcon(service.name, service.description)} size={26} /></span>
-      <div>
+      <div className="service-body">
         <h3>{service.name}</h3>
         {service.description && <p>{service.description}</p>}
         <p className="service-meta">

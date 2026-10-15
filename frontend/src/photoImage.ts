@@ -5,14 +5,17 @@
  */
 import { photoTarget } from './photoSize.ts';
 
-export const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+/** Qualquer imagem: o seletor do celular mostra a galeria inteira; quem decide é se o navegador consegue abrir. */
+export const ACCEPT = 'image/*';
 const MAX_BYTES = 800 * 1024;
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+function loadImage(src: string, file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Não foi possível ler essa foto. Use JPG ou PNG.'));
+    img.onerror = () => reject(new Error(/hei[cf]$/i.test(file.name) || /hei[cf]/i.test(file.type)
+      ? 'Este navegador não abre fotos HEIC do iPhone. Envie pelo Safari do iPhone ou converta para JPG.'
+      : 'Não foi possível abrir essa imagem. Envie uma foto em JPG ou PNG.'));
     img.src = src;
   });
 }
@@ -23,11 +26,12 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 }
 
 export async function preparePhoto(file: File): Promise<Blob> {
-  if (!ACCEPT.split(',').includes(file.type)) throw new Error('Use uma foto JPG, PNG ou WebP.');
-  if (file.size > 25 * 1024 * 1024) throw new Error('Foto muito grande (máximo 25 MB).');
+  // Não recusa pelo tipo informado: celulares e o Windows às vezes mandam tipo vazio ou "image/jfif".
+  if (file.type && !file.type.startsWith('image/')) throw new Error('Esse arquivo não é uma imagem.');
+  if (file.size > 40 * 1024 * 1024) throw new Error('Foto muito grande (máximo 40 MB).');
   const url = URL.createObjectURL(file);
   try {
-    const img = await loadImage(url);
+    const img = await loadImage(url, file);
     for (const [side, quality] of [[1600, 0.85], [1600, 0.75], [1280, 0.75], [1024, 0.7]] as const) {
       const { width, height } = photoTarget(img.naturalWidth, img.naturalHeight, side);
       const canvas = document.createElement('canvas');
