@@ -87,11 +87,11 @@ button, a.button, label.button {
 }
 button:hover, a.button:hover, label.button:hover { background: var(--hover); }
 button:active { transform: translateY(1px); }
-button.primary, a.primary-link, label.primary-link {
+button.primary, a.button.primary, a.primary-link, label.primary-link {
   background: var(--color-primary); color: var(--color-on-primary); border-color: transparent;
   box-shadow: 0 1px 2px rgba(15, 23, 42, .12);
 }
-button.primary:hover, a.primary-link:hover, label.primary-link:hover { background: color-mix(in srgb, var(--color-primary) 88%, #000); }
+button.primary:hover, a.button.primary:hover, a.primary-link:hover, label.primary-link:hover { background: color-mix(in srgb, var(--color-primary) 88%, #000); }
 button.danger, .danger { color: var(--danger); }
 button.danger-fill { background: var(--danger); color: #fff; }
 button.danger-fill:hover { background: #991b1b; }
@@ -654,3 +654,4 @@ p.receipt-toolbar { display: block; }
   .receipt-toolbar, .toasts { display: none !important; }
   .receipt-paper { border: 0; box-shadow: none; padding: 0; }
 }
+.login-card.wide { width: min(560px, 100%); }

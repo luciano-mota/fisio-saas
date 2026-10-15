@@ -3,6 +3,7 @@ import { api, logoUrl, signOut, type ClinicProfile, type Me } from './api';
 import { themeVariables } from './color';
 import { AgendaTab } from './Agenda';
 import { CatalogTab } from './Catalog';
+import { AccountTab, MustChangePassword } from './Account';
 import { ClinicTab } from './ClinicTab';
 import { FinanceTab, type FinanceSection } from './Finance';
 import { PatientsTab } from './Patients';
@@ -15,7 +16,7 @@ import { TodayTab } from './Today';
 import { avatarInitials } from './format';
 import { Icon, Sheet, UiProvider, type IconName } from './ui';
 
-type Tab = 'hoje' | 'agenda' | 'solicitacoes' | 'pacientes' | 'financeiro' | 'catalogo' | 'site' | 'clinica';
+type Tab = 'hoje' | 'agenda' | 'solicitacoes' | 'pacientes' | 'financeiro' | 'catalogo' | 'site' | 'clinica' | 'conta';
 const NAV: { id: Tab; label: string; short?: string; icon: IconName }[] = [
   { id: 'hoje', label: 'Hoje', icon: 'home' },
   { id: 'agenda', label: 'Agenda', icon: 'calendar' },
@@ -24,7 +25,8 @@ const NAV: { id: Tab; label: string; short?: string; icon: IconName }[] = [
   { id: 'financeiro', label: 'Financeiro', icon: 'money' },
   { id: 'catalogo', label: 'Serviços e pacotes', short: 'Catálogo', icon: 'tag' },
   { id: 'site', label: 'Site', icon: 'globe' },
-  { id: 'clinica', label: 'Clínica', icon: 'building' }
+  { id: 'clinica', label: 'Clínica', icon: 'building' },
+  { id: 'conta', label: 'Conta e equipe', icon: 'key' }
 ];
 /** No celular, a barra de baixo tem as 4 do dia a dia; o resto fica em "Mais". */
 const BOTTOM = NAV.slice(0, 4);
@@ -41,7 +43,7 @@ function applyTheme(profile: ClinicProfile | null) {
   Object.entries(vars).forEach(([name, value]) => document.documentElement.style.setProperty(name, value));
 }
 
-export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
+export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => void; onRefresh: () => void }) {
   const path = usePath();
   const [, , segment = '', sub] = path.split('/');
   const tab = (NAV.find(t => t.id === segment)?.id ?? 'hoje') as Tab;
@@ -73,6 +75,8 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
     : <span className="brand-mark">{avatarInitials(name)}</span>;
   const saved = (p: ClinicProfile) => { setProfile(p); applyTheme(p); };
 
+  // Primeiro acesso com senha temporária: troca antes de qualquer coisa.
+  if (me.mustChangePassword) return <UiProvider><MustChangePassword me={me} onDone={onRefresh} onLogout={logout} /></UiProvider>;
   // Recibo: página limpa (sem menu), feita para imprimir ou salvar em PDF.
   if (segment === 'recibo') return <UiProvider><ReceiptPage /></UiProvider>;
 
@@ -113,6 +117,7 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
                                               section={(['devendo', 'pagamentos', 'receber', 'maquininhas'].includes(sub ?? '') ? sub : 'resumo') as FinanceSection} />}
           {tab === 'catalogo' && <CatalogTab owner={owner} section={sub === 'pacotes' ? 'pacotes' : 'servicos'} />}
           {tab === 'site' && profile && <SiteTab owner={owner} profile={profile} onSaved={saved} onLogoChange={setProfile} />}
+          {tab === 'conta' && <AccountTab me={me} />}
           {tab === 'clinica' && profile && <ClinicTab owner={owner} profile={profile} onSaved={saved} />}
         </main>
 

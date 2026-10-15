@@ -236,7 +236,8 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
               <label className="booking-consent">
                 <input type="checkbox" required checked={form.consent} onChange={e => setForm({ ...form, consent: e.target.checked })} />
                 <span>Autorizo {clinic.displayName} a usar meu nome, CPF e WhatsApp para identificar meu cadastro e confirmar
-                  o agendamento. O CPF também serve para emitir recibo.</span>
+                  o agendamento. O CPF também serve para emitir recibo.{' '}
+                  <a href="/privacidade" target="_blank" rel="noreferrer">Política de privacidade</a>.</span>
               </label>
               {pixFor(service) ? (
                 <fieldset className="booking-pay">

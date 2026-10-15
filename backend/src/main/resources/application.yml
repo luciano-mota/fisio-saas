@@ -35,3 +35,9 @@ management:
   endpoint:
     health:
       show-details: never
+
+fisio:
+  # Cadastro de novas clínicas pelo site (desligue com SIGNUP_ENABLED=false).
+  signup-enabled: ${SIGNUP_ENABLED:true}
+  # E-mail de contato da plataforma, mostrado nos termos e na política de privacidade.
+  contact-email: ${PLATFORM_CONTACT_EMAIL:}
