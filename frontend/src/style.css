@@ -688,3 +688,47 @@ button.bday-send:hover { background: #d3f3e1; }
   .bday-cake, .bday-names li { animation: none; }
   .bday-confetti { display: none; }
 }
+
+/* ---------- Aviso de vencimento / acesso ---------- */
+.access-banner { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; margin: 0 0 14px;
+  line-height: 1.45; border: 1px solid; }
+.access-banner .icon { flex: none; margin-top: 1px; }
+.access-banner a { font-weight: 700; white-space: nowrap; }
+.access-banner.info { background: #ecfeff; border-color: #a5f3fc; color: #155e75; }
+.access-banner.warn { background: var(--warn-bg); border-color: #f5d38a; color: #5b3a06; }
+.access-banner.danger { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+
+/* ---------- Administração da plataforma ---------- */
+.admin { min-height: 100vh; background: var(--bg); }
+.admin-top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+  background: #fff; border-bottom: 1px solid var(--border); }
+.admin-top .grow { flex: 1; }
+.admin-tag { font-weight: 800; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: #0A5C63;
+  background: #E3F6F1; padding: 4px 10px; border-radius: 99px; }
+.admin-main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 60px; }
+.admin-main h1 { margin: 0 0 4px; }
+.admin-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 18px 0; }
+.admin-tile { display: grid; gap: 2px; text-align: left; padding: 12px 14px; border-radius: 14px; background: #fff;
+  border: 1px solid var(--border); min-height: 0; }
+.admin-tile strong { font-size: 1.6rem; line-height: 1.1; }
+.admin-tile span { color: var(--muted); font-size: .85rem; }
+.admin-tile.on { outline: 2px solid #0E8C7E; outline-offset: -1px; }
+.pill.st-TRIAL, .admin-tile.st-TRIAL strong { color: #1d4ed8; }
+.pill.st-TRIAL { background: #dbeafe; }
+.pill.st-ACTIVE { background: #dcfce7; color: #14532d; } .admin-tile.st-ACTIVE strong { color: #15803d; }
+.pill.st-FREE { background: #E3F6F1; color: #0A5C63; } .admin-tile.st-FREE strong { color: #0E8C7E; }
+.pill.st-EXPIRED { background: #fef3c7; color: #78350f; } .admin-tile.st-EXPIRED strong { color: #b45309; }
+.pill.st-SUSPENDED { background: #ffedd5; color: #9a3412; } .admin-tile.st-SUSPENDED strong { color: #c2410c; }
+.pill.st-BLOCKED { background: #fee2e2; color: #991b1b; } .admin-tile.st-BLOCKED strong { color: #b91c1c; }
+.admin-tile.st-SOON strong { color: #b45309; }
+.admin-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 16px; }
+.admin-facts div { display: grid; gap: 2px; }
+.admin-facts span { color: var(--muted); font-size: .8rem; }
+.admin-facts strong { font-weight: 600; overflow-wrap: anywhere; }
+.admin-action h3 { margin: 0; }
+.chip.danger.on { background: var(--danger); }
+label.inline { max-width: 160px; }
+.admin-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.admin-history li { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.admin-history p { margin: 4px 0 0; }
+@media (max-width: 560px) { .admin-email { display: none; } }

@@ -10,6 +10,8 @@ import java.text.Normalizer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Locale;
@@ -37,6 +39,8 @@ public class SignupController {
     private static final Logger log = LoggerFactory.getLogger(SignupController.class);
     /** Muda quando o texto dos termos ou da política mudar. */
     public static final String TERMS_VERSION = "2026-10-15";
+    /** Fuso padrão de clínica nova (o mesmo default da coluna clinics.timezone). */
+    static final String DEFAULT_TIMEZONE = "America/Fortaleza";
 
     public record SignupRequest(
         @NotBlank @Size(max = 120) String clinicName,
@@ -57,15 +61,18 @@ public class SignupController {
     private final SignupThrottle throttle;
     private final boolean enabled;
     private final String contactEmail;
+    private final int trialDays;
 
     public SignupController(JdbcTemplate jdbc, PasswordEncoder passwords, SignupThrottle throttle,
                             @Value("${fisio.signup-enabled:true}") boolean enabled,
-                            @Value("${fisio.contact-email:}") String contactEmail) {
+                            @Value("${fisio.contact-email:}") String contactEmail,
+                            @Value("${fisio.trial-days:30}") int trialDays) {
         this.jdbc = jdbc;
         this.passwords = passwords;
         this.throttle = throttle;
         this.enabled = enabled;
         this.contactEmail = contactEmail == null ? "" : contactEmail.trim();
+        this.trialDays = trialDays;
     }
 
     @GetMapping("/platform")
@@ -87,7 +94,10 @@ public class SignupController {
         }
         String email = body.email().trim().toLowerCase(Locale.ROOT);
         AccountController.validatePassword(body.password(), email);
-        Integer taken = jdbc.queryForObject("SELECT count(*) FROM users WHERE lower(email) = ?", Integer.class, email);
+        Integer taken = jdbc.queryForObject("""
+                SELECT (SELECT count(*) FROM users WHERE lower(email) = ?)
+                     + (SELECT count(*) FROM platform_admins WHERE lower(email) = ?)""",
+            Integer.class, email, email);
         if (taken != null && taken > 0) throw new ConflictException("Este e-mail já tem conta. Entre com ele ou use outro e-mail.");
         String whatsapp = body.whatsapp() == null ? null : body.whatsapp().replaceAll("\\D", "");
         if (whatsapp != null && whatsapp.isEmpty()) whatsapp = null;
@@ -98,9 +108,11 @@ public class SignupController {
         String slug = uniqueSlug(slugify(body.clinicName()));
         UUID clinic = UUID.randomUUID();
         jdbc.update("""
-            INSERT INTO clinics(id, slug, display_name, professional_name, whatsapp, terms_accepted_at, terms_version)
-            VALUES (?, ?, ?, ?, ?, now(), ?)""",
-            clinic, slug, body.clinicName().trim(), blankToNull(body.professionalName()), whatsapp, TERMS_VERSION);
+            INSERT INTO clinics(id, slug, display_name, professional_name, whatsapp, terms_accepted_at, terms_version,
+                                status, access_until, status_changed_at)
+            VALUES (?, ?, ?, ?, ?, now(), ?, 'TRIAL', ?, now())""",
+            clinic, slug, body.clinicName().trim(), blankToNull(body.professionalName()), whatsapp, TERMS_VERSION,
+            LocalDate.now(ZoneId.of(DEFAULT_TIMEZONE)).plusDays(trialDays));
         jdbc.update("""
             INSERT INTO users(id, clinic_id, email, password_hash, full_name, role, password_changed_at)
             VALUES (?, ?, ?, ?, ?, 'OWNER', now())""",

@@ -26,6 +26,9 @@ public class AuthController {
 
     @GetMapping("/me")
     public Map<String, Object> me(Authentication auth) {
+        boolean admin = auth != null && auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_" + DatabaseUserDetailsService.PLATFORM_ADMIN));
+        if (admin) return Map.of("email", auth.getName(), "role", DatabaseUserDetailsService.PLATFORM_ADMIN);
         var user = current.require(auth);
         String clinicName = jdbc.queryForObject(
             "SELECT display_name FROM clinics WHERE id = ?", String.class, user.clinicId());
