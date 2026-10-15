@@ -47,3 +47,11 @@ export function avatarInitials(name: string): string {
   if (parts.length === 0) return '?';
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
+
+/** CPF ou CNPJ formatado conforme o tamanho (o cadastro pode ter vindo com ou sem pontuação). */
+export function formatDocument(doc: string | null | undefined): string {
+  const d = onlyDigits(doc);
+  if (d.length === 11) return formatCpf(d);
+  if (d.length === 14) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+  return doc ?? '';
+}

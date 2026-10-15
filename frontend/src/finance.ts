@@ -69,6 +69,12 @@ export function monthRange(month: string): [string, string] {
   return [`${month}-01`, `${month}-${String(last).padStart(2, '0')}`];
 }
 
+/** "2026-10-15" → "15 de outubro de 2026". */
+export function longDate(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return `${d} de ${MONTHS[m - 1]} de ${y}`;
+}
+
 /** "2026-10-15" → "15/10/2026". */
 export function dateBr(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split('-');

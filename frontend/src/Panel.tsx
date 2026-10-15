@@ -6,6 +6,7 @@ import { CatalogTab } from './Catalog';
 import { ClinicTab } from './ClinicTab';
 import { FinanceTab, type FinanceSection } from './Finance';
 import { PatientsTab } from './Patients';
+import { ReceiptPage } from './ReceiptPage';
 import { RequestsTab } from './Requests';
 import { useFonts } from './PublicPage';
 import { navigate, usePath } from './router';
@@ -71,6 +72,9 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
     ? <img className="brand-mark logo" src={logoUrl(profile.logoVersion)!} alt="" />
     : <span className="brand-mark">{avatarInitials(name)}</span>;
   const saved = (p: ClinicProfile) => { setProfile(p); applyTheme(p); };
+
+  // Recibo: página limpa (sem menu), feita para imprimir ou salvar em PDF.
+  if (segment === 'recibo') return <UiProvider><ReceiptPage /></UiProvider>;
 
   return (
     <UiProvider>

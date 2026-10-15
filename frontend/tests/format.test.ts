@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ageOn, formatCpf, formatPhone, isValidCpf } from '../src/format.ts';
+import { ageOn, formatCpf, formatPhone, isValidCpf, formatDocument } from '../src/format.ts';
 
 test('formata CPF e telefone guardados só com dígitos', () => {
   assert.equal(formatCpf('52998224725'), '529.982.247-25');
@@ -22,4 +22,11 @@ test('idade só aumenta no dia do aniversário', () => {
   assert.equal(ageOn('1980-05-17', new Date(2026, 4, 16)), 45);
   assert.equal(ageOn('1980-05-17', new Date(2026, 4, 17)), 46);
   assert.equal(ageOn('1980-05-17', new Date(2026, 9, 14)), 46);
+});
+
+test('CPF ou CNPJ do recibo', () => {
+  assert.equal(formatDocument('52998224725'), '529.982.247-25');
+  assert.equal(formatDocument('11222333000181'), '11.222.333/0001-81');
+  assert.equal(formatDocument('11.222.333/0001-81'), '11.222.333/0001-81');
+  assert.equal(formatDocument(null), '');
 });

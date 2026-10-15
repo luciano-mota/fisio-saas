@@ -75,6 +75,10 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   conferido pelo conteúdo, até 3 MB, só com o token do próprio pedido) e o horário fica reservado por mais 48 h. Em
   Solicitações a clínica vê o comprovante (só a responsável), com o aviso de conferir no app do banco, e ao aceitar
   pode lançar o Pix no financeiro. O lembrete de quem está devendo pode levar o Pix com o valor em aberto.
+- **Recibo para o Imposto de Renda**: de um pagamento (menu ⋯ do pagamento) ou de um período (ficha do paciente →
+  "Recibo para o IR", ex.: o ano todo). Traz profissional (nome, CREFITO, CPF/CNPJ, endereço), paciente (nome e CPF),
+  pagamentos com data e descrição, total por extenso e assinatura; avisa o que falta no cadastro para valer no IR.
+  Imprime ou salva em PDF pelo próprio navegador (sem serviço externo). Estornos não entram.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do
   site são apagadas de verdade ao remover (não são histórico e podem mostrar pessoas — LGPD).
 
@@ -149,6 +153,7 @@ isolamento entre clínicas, STAFF só consulta).
 | GET · PUT | `/api/v1/clinic/pix` (chave Pix) · POST `/api/v1/finance/pix` (código com valor) | logado · OWNER |
 | GET | `/api/v1/booking-requests/{id}/receipt` (comprovante do Pix) | OWNER |
 | POST | `/api/v1/public/clinics/{slug}/booking-requests/{id}/receipt` (multipart `file` + `token`, com CSRF) | público |
+| GET | `/api/v1/payments/{id}/receipt` · `/api/v1/patients/{id}/receipt?from&to` (recibo para o IR) | logado |
 | GET | `/api/v1/public/clinics/{slug}` · `/{slug}/logo` · `/{slug}/photos/{id}` · `/{slug}/slots?serviceId&from&to` | público |
 | POST | `/api/v1/public/clinics/{slug}/booking-requests` (com CSRF) | público |
 
@@ -172,6 +177,5 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Próximos passos (ordem sugerida)
 
-1. Recibo para IR.
-2. Conta: troca de senha, colaboradores, cadastro de novas clínicas; termos de uso e privacidade (LGPD).
-3. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.
+1. Conta: troca de senha, colaboradores, cadastro de novas clínicas; termos de uso e privacidade (LGPD).
+2. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.
