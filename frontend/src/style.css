@@ -617,3 +617,8 @@ strong.warn, .money-stat strong.warn { color: var(--warn-text); }
 .installment-grid label { font-size: .85rem; }
 .pill.ok { background: #dcfce7; color: #14532d; }
 .row-card > .stat-icon { margin: 0; }
+.link-button.danger { color: var(--danger); }
+.pix-check { border-top: 1px dashed var(--border); margin-top: 12px; padding-top: 10px; display: grid; gap: 6px; }
+.pix-check p { margin: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pix-check .warn { color: var(--warn-text); }
+.message-preview { white-space: pre-wrap; word-break: break-word; background: var(--hover); border-radius: 12px; padding: 12px 14px; margin: 0; font: inherit; font-size: .92rem; }

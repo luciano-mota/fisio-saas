@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { api, type ClinicProfile } from './api';
 import { navigate } from './router';
 import { BookingSettings } from './BookingSettings';
+import { PixSettings } from './PixSettings';
 import { Icon, PageHeader, useUi } from './ui';
 
 /** Dados da clínica, endereço da página pública e regra de falta dos pacotes. */
@@ -91,7 +92,10 @@ export function ClinicTab({ owner, profile, onSaved }: {
         {error && <p className="error" role="alert">{error}</p>}
         {owner && <div className="save-bar"><button className="primary">Salvar</button></div>}
       </form>
-      <div className="stack booking-block"><BookingSettings owner={owner} /></div>
+      <div className="stack booking-block">
+        <BookingSettings owner={owner} />
+        <PixSettings owner={owner} defaultName={profile.professionalName ?? profile.displayName} />
+      </div>
     </section>
   );
 }

@@ -73,6 +73,7 @@ function RequestCard({ item, owner, onAccepted, onDecline, onError }: {
   const { confirm } = useUi();
   const [update, setUpdate] = useState(false);
   const [link, setLink] = useState<string>('');
+  const [confirmPay, setConfirmPay] = useState(false);
   const [busy, setBusy] = useState(false);
   const open = item.status === 'PENDING' || item.status === 'EXPIRED';
   const p = item.patient;
@@ -86,7 +87,8 @@ function RequestCard({ item, owner, onAccepted, onDecline, onError }: {
     setBusy(true);
     onError('');
     try {
-      await api(`/api/v1/booking-requests/${item.id}/accept`, 'POST', { linkPatientId: link || null, updatePatient: update });
+      await api(`/api/v1/booking-requests/${item.id}/accept`, 'POST',
+        { linkPatientId: link || null, updatePatient: update, confirmPayment: confirmPay });
       onAccepted();
     } catch (e) { onError((e as Error).message); } finally { setBusy(false); }
   }
@@ -100,6 +102,8 @@ function RequestCard({ item, owner, onAccepted, onDecline, onError }: {
           <span className={`pill status-req-${item.status.toLowerCase()}`}>{STATUS[item.status]}</span>
           <div className="meta">
             <span>{item.serviceName}{item.servicePrice !== null && ` · ${money(item.servicePrice)}`}</span>
+            {item.payMethod === 'PIX' && <span className="pill">Pix {money(item.payAmount)}{item.code && ` · ${item.code}`}</span>}
+            {item.payMethod === 'CLINICA' && <span className="pill">paga na clínica</span>}
             <span>CPF {formatCpf(item.cpf)}</span>
             <a href={whatsappLink(item.whatsapp, `Olá, ${item.fullName.split(' ')[0]}!`)} target="_blank" rel="noreferrer">
               <Icon name="whatsapp" size={14} /> {formatPhone(item.whatsapp)}</a>
@@ -138,6 +142,24 @@ function RequestCard({ item, owner, onAccepted, onDecline, onError }: {
           )}
         </div>
       )}
+
+      {open && item.payMethod === 'PIX' && (
+        <div className="pix-check">
+          {item.receipt ? (
+            <p><Icon name="check" size={16} /> <strong>Comprovante enviado</strong> em {whenLabel(item.receipt.uploadedAt)}
+              {owner && <> · <a href={`/api/v1/booking-requests/${item.id}/receipt`} target="_blank" rel="noreferrer">Ver comprovante</a></>}</p>
+          ) : (
+            <p><Icon name="clock" size={16} /> Aguardando o comprovante do Pix.</p>
+          )}
+          <p className="small warn"><Icon name="alert" size={14} /> Confira no app do banco antes de confirmar: {money(item.payAmount)},
+            pedido {item.code}. Comprovante pode ser falsificado.</p>
+          {owner && (
+            <label className="switch small"><input type="checkbox" checked={confirmPay} onChange={e => setConfirmPay(e.target.checked)} />
+              <span>Conferi no banco — lançar {money(item.payAmount)} em Pix no financeiro ao aceitar</span></label>
+          )}
+        </div>
+      )}
+      {!open && item.paymentId && <p className="small muted"><Icon name="check" size={14} /> Pix lançado no financeiro.</p>}
 
       {open && owner && (
         <div className="actions end">

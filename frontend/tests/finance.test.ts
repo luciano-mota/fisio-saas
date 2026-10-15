@@ -40,6 +40,12 @@ test('lembrete de valor em aberto', () => {
     'Pode ser por Pix, dinheiro ou cartão. Se já pagou, me avise para eu dar baixa. Obrigado!');
 });
 
+test('lembrete com Pix copia e cola', () => {
+  const text = chargeMessage('Maria', 50, undefined, '000201ABC');
+  assert.ok(text.startsWith('Olá, Maria! Tudo bem? Passando'));
+  assert.ok(text.endsWith('Obrigado!\n\nPix copia e cola (é só colar no app do banco):\n000201ABC'));
+});
+
 test('situação da sessão avulsa', () => {
   assert.equal(sessionPaymentState(90, 0), 'a pagar');
   assert.equal(sessionPaymentState(90, 40), 'pago em parte');
