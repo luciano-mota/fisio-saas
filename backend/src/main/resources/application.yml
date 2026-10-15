@@ -46,5 +46,5 @@ fisio:
   signup-enabled: ${SIGNUP_ENABLED:true}
   # E-mail de contato da plataforma, mostrado nos termos e na política de privacidade.
   contact-email: ${PLATFORM_CONTACT_EMAIL:}
-  # Dias de teste grátis para clínica que se cadastra pelo site.
-  trial-days: ${TRIAL_DAYS:30}
+  # Dias de teste grátis para clínica que se cadastra pelo site. 0 = sem prazo: a plataforma define em /admin.
+  trial-days: ${TRIAL_DAYS:0}

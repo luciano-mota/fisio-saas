@@ -17,7 +17,7 @@ const TILES: EffectiveStatus[] = ['TRIAL', 'ACTIVE', 'FREE', 'EXPIRED', 'SUSPEND
 
 function deadline(c: AdminClinic): string {
   if (c.effectiveStatus === 'SUSPENDED' || c.effectiveStatus === 'BLOCKED') return c.statusReason ?? '';
-  if (!c.accessUntil || c.daysLeft == null) return 'Sem prazo';
+  if (!c.accessUntil || c.daysLeft == null) return c.effectiveStatus === 'TRIAL' ? 'Teste sem prazo definido' : 'Sem prazo';
   if (c.daysLeft < 0) return `Venceu em ${dateBrFull(c.accessUntil)}`;
   return `Até ${dateBrFull(c.accessUntil)} (${inDays(c.daysLeft)})`;
 }
