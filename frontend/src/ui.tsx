@@ -127,6 +127,13 @@ function Dialog({ title, onClose, children, className = '' }: {
   );
 }
 
+/** Janela centralizada (aviso), com o mesmo foco e Esc da gaveta. */
+export function Modal({ title, onClose, children, className = '' }: {
+  title: string; onClose: () => void; children: ReactNode; className?: string;
+}) {
+  return <Dialog title={title} onClose={onClose} className={`confirm ${className}`}>{children}</Dialog>;
+}
+
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return <Dialog title={title} onClose={onClose}>{children}</Dialog>;
 }

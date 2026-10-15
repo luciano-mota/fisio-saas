@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, whatsappLink, type Patient } from './api';
 import { ageOn, formatCpf, formatPhone, isValidCpf, maskCpf, maskPhone } from './format';
+import { BirthdaysView } from './Birthdays';
 import { PatientDetail } from './PatientDetail';
 import { navigate } from './router';
 import { Avatar, EmptyState, Icon, Menu, PageHeader, Sheet, useUi } from './ui';
@@ -18,7 +19,7 @@ export function toForm(p: Patient): PatientForm {
 }
 
 /** Cadastro de pacientes: só dados administrativos (sem dados clínicos nesta fase). {@code patientId} "novo" abre o cadastro. */
-export function PatientsTab({ owner, patientId }: { owner: boolean; patientId?: string }) {
+export function PatientsTab({ owner, patientId, clinicName }: { owner: boolean; patientId?: string; clinicName: string }) {
   const { toast, confirm } = useUi();
   const [items, setItems] = useState<Patient[] | null>(null);
   const [query, setQuery] = useState('');
@@ -58,6 +59,25 @@ export function PatientsTab({ owner, patientId }: { owner: boolean; patientId?: 
     await load();
   }
 
+  const tabs = (
+    <div className="segmented wide" role="tablist" aria-label="Pacientes">
+      <button role="tab" aria-selected={patientId !== 'aniversariantes'} className={patientId !== 'aniversariantes' ? 'active' : ''}
+              onClick={() => navigate('/painel/pacientes')}>Pacientes</button>
+      <button role="tab" aria-selected={patientId === 'aniversariantes'} className={patientId === 'aniversariantes' ? 'active' : ''}
+              onClick={() => navigate('/painel/pacientes/aniversariantes')}>🎂 Aniversariantes</button>
+    </div>
+  );
+
+  if (patientId === 'aniversariantes') {
+    return (
+      <section>
+        <PageHeader title="Pacientes" subtitle="Aniversariantes, inclusive desativados: uma boa hora para chamar de volta." />
+        {tabs}
+        <BirthdaysView owner={owner} clinicName={clinicName} />
+      </section>
+    );
+  }
+
   if (patientId && patientId !== 'novo') {
     return <PatientDetail patientId={patientId} owner={owner} onBack={() => navigate('/painel/pacientes')} />;
   }
@@ -68,6 +88,7 @@ export function PatientsTab({ owner, patientId }: { owner: boolean; patientId?: 
         {owner && <button className="primary" onClick={() => { setError(''); setForm(EMPTY); }}>
           <Icon name="plus" size={18} /> Paciente</button>}
       </PageHeader>
+      {tabs}
 
       <div className="search">
         <Icon name="search" size={18} />
