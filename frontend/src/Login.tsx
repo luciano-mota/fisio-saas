@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { signIn } from './api';
+import { navigate } from './router';
 import { Icon } from './ui';
 
-export function Login({ onLogged }: { onLogged: () => void }) {
+export function Login({ onLogged, signupEnabled }: { onLogged: () => void; signupEnabled: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -37,6 +38,12 @@ export function Login({ onLogged }: { onLogged: () => void }) {
         </label>
         {error && <p className="error" role="alert">{error}</p>}
         <button className="primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
+        <p className="small muted">Esqueceu a senha? Peça à responsável da clínica para gerar uma senha temporária
+          (Conta e equipe). Se você é a responsável, fale com o suporte.</p>
+        <div className="login-links small">
+          {signupEnabled && <a href="/cadastro" onClick={e => { e.preventDefault(); navigate('/cadastro'); }}>Criar conta grátis</a>}
+          <span><a href="/termos">Termos</a> · <a href="/privacidade">Privacidade</a></span>
+        </div>
       </form>
     </main>
   );

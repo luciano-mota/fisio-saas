@@ -79,6 +79,12 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   "Recibo para o IR", ex.: o ano todo). Traz profissional (nome, CREFITO, CPF/CNPJ, endereço), paciente (nome e CPF),
   pagamentos com data e descrição, total por extenso e assinatura; avisa o que falta no cadastro para valer no IR.
   Imprime ou salva em PDF pelo próprio navegador (sem serviço externo). Estornos não entram.
+- **Conta e equipe**: troca de senha; a responsável dá acesso a colaboradores (só consulta) ou a outra responsável,
+  com **senha temporária** (mensagem pronta para o WhatsApp) que a pessoa troca no primeiro login; remover acesso
+  (desativa), reativar e gerar nova senha. A clínica nunca fica sem uma responsável ativa.
+- **Cadastro de clínica pelo site** (`/cadastro`, período de testes), com aceite dos **termos de uso** (`/termos`) e da
+  **política de privacidade** (`/privacidade`, LGPD) — versão aceita fica registrada. Campo anti-robô e limite por IP;
+  desligável com `SIGNUP_ENABLED=false`. Página do produto em `/` para quem não entrou.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do
   site são apagadas de verdade ao remover (não são histórico e podem mostrar pessoas — LGPD).
 
@@ -154,6 +160,9 @@ isolamento entre clínicas, STAFF só consulta).
 | GET | `/api/v1/booking-requests/{id}/receipt` (comprovante do Pix) | OWNER |
 | POST | `/api/v1/public/clinics/{slug}/booking-requests/{id}/receipt` (multipart `file` + `token`, com CSRF) | público |
 | GET | `/api/v1/payments/{id}/receipt` · `/api/v1/patients/{id}/receipt?from&to` (recibo para o IR) | logado |
+| PUT | `/api/v1/account/password` | logado |
+| GET · POST · PUT `/{id}` · DELETE `/{id}` · POST `/{id}/reset-password` · POST `/{id}/reactivate` | `/api/v1/team` | logado · OWNER |
+| POST `/signup` (com CSRF) · GET `/platform` | `/api/v1/public` | público |
 | GET | `/api/v1/public/clinics/{slug}` · `/{slug}/logo` · `/{slug}/photos/{id}` · `/{slug}/slots?serviceId&from&to` | público |
 | POST | `/api/v1/public/clinics/{slug}/booking-requests` (com CSRF) | público |
 
@@ -169,6 +178,8 @@ BOOTSTRAP_OWNER_EMAIL=...
 BOOTSTRAP_OWNER_PASSWORD=...
 BOOTSTRAP_CLINIC_NAME=...
 BOOTSTRAP_CLINIC_SLUG=...
+PLATFORM_CONTACT_EMAIL=contato@seudominio.com.br   # aparece nos termos e na política de privacidade
+SIGNUP_ENABLED=true                                # false = só a clínica inicial (sem cadastro pelo site)
 ```
 
 ```bash
@@ -177,5 +188,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Próximos passos (ordem sugerida)
 
-1. Conta: troca de senha, colaboradores, cadastro de novas clínicas; termos de uso e privacidade (LGPD).
-2. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.
+1. Correções do teste de homologação (cartões 🐞 no Trello), começando pela sessão que cai a cada deploy.
+2. Revisão jurídica dos termos e da política de privacidade; nome do produto e domínio.
+3. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.
