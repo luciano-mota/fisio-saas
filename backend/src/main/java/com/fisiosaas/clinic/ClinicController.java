@@ -55,7 +55,9 @@ public class ClinicController {
         Boolean siteShowTestimonials,
         // Modelo (estrutura) e clima (fundo/texto) do site; nulos = mantém.
         @Pattern(regexp = TEMPLATES, message = "modelo inválido") String siteTemplate,
-        @Pattern(regexp = MOODS, message = "clima inválido") String siteMood) {}
+        @Pattern(regexp = MOODS, message = "clima inválido") String siteMood,
+        // Repassar a taxa da maquininha ao paciente (nulo = mantém).
+        Boolean passCardFee) {}
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
@@ -80,7 +82,7 @@ public class ClinicController {
                    color_accent = ?, public_page_enabled = ?, no_show_consumes_session = ?,
                    site_style = ?, site_fonts = ?, site_headline = ?, site_education = ?, site_hours = ?,
                    site_service_area = ?, site_show_map = ?, site_show_testimonials = ?,
-                   site_template = ?, site_mood = ?, updated_at = now()
+                   site_template = ?, site_mood = ?, pass_card_fee = ?, updated_at = now()
              WHERE id = ?""",
             body.slug() == null ? old.slug() : body.slug(),
             body.displayName().trim(), blankToNull(body.professionalName()), blankToNull(body.crefito()),
@@ -101,6 +103,7 @@ public class ClinicController {
             body.siteShowTestimonials() == null ? old.siteShowTestimonials() : body.siteShowTestimonials(),
             body.siteTemplate() == null ? old.siteTemplate() : body.siteTemplate(),
             body.siteMood() == null ? old.siteMood() : body.siteMood(),
+            body.passCardFee() == null ? old.passCardFee() : body.passCardFee(),
             clinicId);
         return load(clinicId);
     }
@@ -118,7 +121,7 @@ public class ClinicController {
             (Long) rs.getObject("logo_version"), rs.getString("site_style"), rs.getString("site_fonts"),
             rs.getString("site_headline"), rs.getString("site_education"), rs.getString("site_hours"),
             rs.getString("site_service_area"), rs.getBoolean("site_show_map"), rs.getBoolean("site_show_testimonials"),
-            rs.getString("site_template"), rs.getString("site_mood")),
+            rs.getString("site_template"), rs.getString("site_mood"), rs.getBoolean("pass_card_fee")),
             clinicId);
     }
 

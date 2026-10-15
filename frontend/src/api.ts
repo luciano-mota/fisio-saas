@@ -10,6 +10,7 @@ export type ClinicProfile = {
   siteStyle: string; siteFonts: string; siteHeadline: string | null;
   siteEducation: string | null; siteHours: string | null; siteServiceArea: string | null;
   siteShowMap: boolean; siteShowTestimonials: boolean; siteTemplate: string; siteMood: string;
+  passCardFee: boolean;
 };
 
 export type SitePhoto = { id: string; kind: 'COVER' | 'GALLERY'; caption: string | null; width: number; height: number; position: number };
@@ -38,7 +39,7 @@ export type Appointment = {
   startsAt: string; endsAt: string; status: AppointmentStatus; notes: string | null;
   originalStartsAt: string | null; rescheduleCount: number; seriesId: string | null;
   patientPackageId: string | null; packageName: string | null; packageRemaining: number | null;
-  countsAgainstPackage: boolean;
+  countsAgainstPackage: boolean; price: number | null; paidAmount: number;
 };
 
 /** Pacote vendido a um paciente, com saldo. */
@@ -60,6 +61,37 @@ export type BookingRequest = {
   status: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CANCELED'; holdUntil: string; createdAt: string;
   declineReason: string | null; appointmentId: string | null; patient: PatientMatch | null; suggestions: PatientMatch[];
 };
+export type InstallmentFee = { installments: number; fee: number };
+export type CardMachine = {
+  id: string; name: string; debitFee: number; creditFee: number; fixedFee: number; debitDays: number; creditDays: number;
+  anticipated: boolean; active: boolean; installmentFees: InstallmentFee[];
+};
+export type PaymentMethod = 'DINHEIRO' | 'PIX' | 'DEBITO' | 'CREDITO';
+export type Payment = {
+  id: string; patientId: string; patientName: string; patientPackageId: string | null; packageName: string | null;
+  appointmentId: string | null; appointmentDate: string | null; method: PaymentMethod; machineId: string | null;
+  machineName: string | null; installments: number; amount: number; chargedAmount: number; feePercent: number;
+  feeAmount: number; netAmount: number; paidOn: string; notes: string | null; canceled: boolean;
+};
+export type PaymentPreview = {
+  feePercent: number; chargedAmount: number; feeAmount: number; netAmount: number;
+  receivables: { installment: number; dueOn: string; amount: number }[];
+};
+export type Debtor = {
+  patientId: string; fullName: string; whatsapp: string | null; charged: number; paid: number; balance: number;
+  lastPaymentOn: string | null;
+};
+export type FinanceSummary = {
+  month: string; received: number; fees: number; net: number; toReceive: number; open: number; payments: number;
+  byMethod: { method: PaymentMethod; charged: number; fees: number; net: number }[];
+};
+export type Receivable = {
+  id: string; paymentId: string; patientName: string; machineName: string | null; installment: number; installments: number;
+  dueOn: string; amount: number; receivedOn: string | null;
+};
+export type Charge = { kind: 'PACOTE' | 'SESSAO'; id: string; description: string; date: string; value: number; paid: number };
+export type PatientFinance = { charged: number; paid: number; balance: number; charges: Charge[]; payments: Payment[] };
+
 export type PublicPhoto = { id: string; caption: string | null; width: number; height: number };
 export type PublicPackage = { id: string; name: string; sessionCount: number; price: number | null; validityDays: number | null };
 export type PublicService = {
@@ -108,7 +140,9 @@ async function handle<T>(res: Response): Promise<T> {
     if (res.status === 401) window.dispatchEvent(new Event('session-expired'));
     throw new ApiError(message, res.status, conflicts);
   }
-  return (res.status === 204 ? null : await res.json()) as T;
+  if (res.status === 204) return null as T;
+  const text = await res.text();
+  return (text ? JSON.parse(text) : null) as T;
 }
 
 export async function api<T>(url: string, method = 'GET', payload?: unknown): Promise<T> {

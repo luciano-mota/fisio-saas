@@ -560,3 +560,60 @@ h4 { margin: 8px 0 0; font-size: .98rem; }
 .pill.status-req-pending { background: #fef3c7; color: #78350f; }
 .pill.status-req-accepted { background: #dcfce7; color: #14532d; }
 .pill.status-req-declined, .pill.status-req-expired { background: #e5e7eb; color: #374151; }
+
+/* ---------- Financeiro ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+fieldset.field > legend { font-weight: 600; font-size: .92rem; margin-bottom: 8px; padding: 0; }
+.segmented.scroll-x { overflow-x: auto; max-width: 100%; scrollbar-width: none; margin-bottom: 16px; }
+.segmented.scroll-x button { white-space: nowrap; }
+.month-nav { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.month-nav strong { min-width: 170px; text-align: center; }
+.month-nav strong::first-letter { text-transform: uppercase; }
+.money-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.money-stats.two { grid-template-columns: repeat(2, 1fr); }
+.money-stat {
+  display: grid; gap: 2px; align-content: start; justify-content: stretch; justify-items: start; text-align: left; padding: 14px; min-height: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  white-space: normal; font-weight: 400;
+}
+.money-stat > span { color: var(--muted); font-size: .82rem; font-weight: 500; }
+.money-stat strong { font-size: 1.25rem; line-height: 1.2; }
+.money-stat.main { background: var(--tint); border-color: transparent; }
+.money-stat.main strong { font-size: 1.5rem; color: var(--color-primary); }
+.money-stat small { color: var(--muted); font-size: .78rem; display: inline-flex; align-items: center; gap: 2px; }
+.money-stat.link { cursor: pointer; }
+.money-stat.link:hover { border-color: var(--color-primary); }
+strong.warn, .money-stat strong.warn { color: var(--warn-text); }
+.finance-card .money-stats { margin-bottom: 12px; }
+.finance-card .money-stat { box-shadow: none; }
+.finance-card h3 { margin: 18px 0 8px; font-size: 1rem; }
+@media (max-width: 560px) {
+  .money-stats { grid-template-columns: 1fr 1fr; }
+  .money-stats .money-stat.main { grid-column: 1 / -1; }
+}
+.method-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.method-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.row-card {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow-sm);
+}
+.row-card.inactive { opacity: .6; }
+.row-card .grow { flex: 1 1 180px; min-width: 0; }
+.row-card .pill { margin-left: 6px; }
+.amount { font-variant-numeric: tabular-nums; font-size: 1.05rem; white-space: nowrap; }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 560px) { .row-actions { width: 100%; } .row-actions > * { flex: 1; } }
+.pay-date { display: grid; justify-items: center; line-height: 1.1; min-width: 40px; padding: 6px; border-radius: 10px; background: var(--hover); }
+.pay-date strong { font-size: 1.1rem; }
+.pay-date span { font-size: .75rem; color: var(--muted); }
+.list.charges li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border); }
+.list.charges li:first-child { border-top: 0; }
+.list.charges .grow { flex: 1 1 180px; }
+.preview-box { background: var(--hover); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; }
+.preview-line { display: flex; justify-content: space-between; gap: 12px; font-size: .92rem; }
+.preview-line.strong { font-size: 1rem; }
+.preview-box p { margin: 0; }
+.installment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.installment-grid label { font-size: .85rem; }
+.pill.ok { background: #dcfce7; color: #14532d; }
+.row-card > .stat-icon { margin: 0; }

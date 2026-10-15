@@ -75,6 +75,18 @@ export function ClinicTab({ owner, profile, onSaved }: {
               <span>Falta sem aviso consome sessão do pacote</span></label>
             <p className="muted small">Vale para as faltas marcadas daqui em diante; faltas já registradas não mudam.</p>
           </div>
+
+          <div className="card form">
+            <h3>Pagamentos no cartão</h3>
+            <label className="switch"><input type="checkbox" checked={form.passCardFee}
+                                             onChange={e => set('passCardFee', e.target.checked)} />
+              <span>Repassar a taxa da maquininha ao paciente</span></label>
+            <p className="muted small">Ligado: o sistema mostra quanto cobrar na maquininha para você receber o valor cheio
+              (ex.: R$ 600 em 3x com taxa de 4,99% → cobrar R$ 631,51). Desligado: a taxa sai do seu valor.
+              Taxas e prazos ficam em{' '}
+              <a href="/painel/financeiro/maquininhas" onClick={e => { e.preventDefault(); navigate('/painel/financeiro/maquininhas'); }}>
+                Financeiro → Maquininhas</a>.</p>
+          </div>
         </fieldset>
         {error && <p className="error" role="alert">{error}</p>}
         {owner && <div className="save-bar"><button className="primary">Salvar</button></div>}

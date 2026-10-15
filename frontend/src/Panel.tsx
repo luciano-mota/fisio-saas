@@ -4,6 +4,7 @@ import { themeVariables } from './color';
 import { AgendaTab } from './Agenda';
 import { CatalogTab } from './Catalog';
 import { ClinicTab } from './ClinicTab';
+import { FinanceTab, type FinanceSection } from './Finance';
 import { PatientsTab } from './Patients';
 import { RequestsTab } from './Requests';
 import { useFonts } from './PublicPage';
@@ -13,12 +14,13 @@ import { TodayTab } from './Today';
 import { avatarInitials } from './format';
 import { Icon, Sheet, UiProvider, type IconName } from './ui';
 
-type Tab = 'hoje' | 'agenda' | 'solicitacoes' | 'pacientes' | 'catalogo' | 'site' | 'clinica';
+type Tab = 'hoje' | 'agenda' | 'solicitacoes' | 'pacientes' | 'financeiro' | 'catalogo' | 'site' | 'clinica';
 const NAV: { id: Tab; label: string; short?: string; icon: IconName }[] = [
   { id: 'hoje', label: 'Hoje', icon: 'home' },
   { id: 'agenda', label: 'Agenda', icon: 'calendar' },
   { id: 'solicitacoes', label: 'Solicitações', short: 'Pedidos', icon: 'bell' },
   { id: 'pacientes', label: 'Pacientes', icon: 'users' },
+  { id: 'financeiro', label: 'Financeiro', icon: 'money' },
   { id: 'catalogo', label: 'Serviços e pacotes', short: 'Catálogo', icon: 'tag' },
   { id: 'site', label: 'Site', icon: 'globe' },
   { id: 'clinica', label: 'Clínica', icon: 'building' }
@@ -103,6 +105,8 @@ export function Panel({ me, onLogout }: { me: Me; onLogout: () => void }) {
           {tab === 'agenda' && <AgendaTab owner={owner} action={sub} />}
           {tab === 'solicitacoes' && <RequestsTab owner={owner} onChanged={refreshPending} />}
           {tab === 'pacientes' && <PatientsTab owner={owner} patientId={sub} />}
+          {tab === 'financeiro' && <FinanceTab owner={owner} clinicName={name}
+                                              section={(['devendo', 'pagamentos', 'receber', 'maquininhas'].includes(sub ?? '') ? sub : 'resumo') as FinanceSection} />}
           {tab === 'catalogo' && <CatalogTab owner={owner} section={sub === 'pacotes' ? 'pacotes' : 'servicos'} />}
           {tab === 'site' && profile && <SiteTab owner={owner} profile={profile} onSaved={saved} onLogoChange={setProfile} />}
           {tab === 'clinica' && profile && <ClinicTab owner={owner} profile={profile} onSaved={saved} />}

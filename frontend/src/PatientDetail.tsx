@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { api, money, whatsappLink, type Patient, type PatientPackage, type SessionPackage } from './api';
+import { api, money, whatsappLink, type Patient, type PatientFinance, type PatientPackage, type SessionPackage } from './api';
+import { PaymentRow } from './Finance';
+import { brl, chargeMessage, dateBr as dateShort } from './finance';
+import { PaymentSheet, type PaymentTarget } from './PaymentSheet';
 import { today } from './dates';
 import { ageOn, formatCpf, formatPhone } from './format';
 import { renewalMessage, sessionsLabel } from './messages';
@@ -19,12 +22,25 @@ export function PatientDetail({ patientId, owner, onBack }: { patientId: string;
   const [catalog, setCatalog] = useState<SessionPackage[]>([]);
   const [selling, setSelling] = useState(false);
   const [editing, setEditing] = useState<PatientForm | null>(null);
+  const [finance, setFinance] = useState<PatientFinance | null>(null);
+  const [paying, setPaying] = useState<{ target?: PaymentTarget } | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setPatient(await api<Patient>(`/api/v1/patients/${patientId}`));
     setPackages(await api<PatientPackage[]>(`/api/v1/patients/${patientId}/packages`));
+    setFinance(await api<PatientFinance>(`/api/v1/patients/${patientId}/finance`));
   }, [patientId]);
+
+  async function cancelPayment(id: string, amount: number) {
+    if (!await confirm(`Estornar o pagamento de ${brl(amount)}? Ele continua no histórico, mas volta a contar como em aberto.`,
+      { title: 'Estornar pagamento', confirmLabel: 'Estornar', danger: true })) return;
+    try {
+      await api(`/api/v1/payments/${id}/cancel`, 'POST');
+      toast('Pagamento estornado');
+      await load();
+    } catch (e) { setError((e as Error).message); }
+  }
 
   useEffect(() => {
     load().catch(e => setError((e as Error).message));
@@ -116,6 +132,60 @@ export function PatientDetail({ patientId, owner, onBack }: { patientId: string;
         ))}
       </ul>
 
+      <div className="section-title">
+        <h2>Pagamentos</h2>
+        {owner && <button onClick={() => { setError(''); setPaying({}); }}><Icon name="plus" size={18} /> Registrar pagamento</button>}
+      </div>
+      {finance && (finance.charges.length > 0 || finance.payments.length > 0) ? (
+        <div className="card finance-card">
+          <div className="money-stats">
+            <div className="money-stat"><span>Cobrado</span><strong>{brl(finance.charged)}</strong></div>
+            <div className="money-stat"><span>Pago</span><strong>{brl(finance.paid)}</strong></div>
+            <div className="money-stat main"><span>{finance.balance < 0 ? 'Crédito do paciente' : 'Em aberto'}</span>
+              <strong className={finance.balance > 0 ? 'warn' : ''}>{brl(Math.abs(finance.balance))}</strong></div>
+          </div>
+          {finance.balance > 0 && patient.whatsapp && (
+            <a className="button wa" target="_blank" rel="noreferrer"
+               href={whatsappLink(patient.whatsapp, chargeMessage(patient.fullName, finance.balance))}>
+              <Icon name="whatsapp" size={18} /> Lembrar do valor em aberto</a>
+          )}
+          {finance.charges.some(c => c.value > c.paid) && (
+            <>
+              <h3>Em aberto</h3>
+              <ul className="list charges">
+                {finance.charges.filter(c => c.value > c.paid).map(c => (
+                  <li key={c.kind + c.id}>
+                    <div className="grow"><strong>{c.description}</strong>
+                      <div className="meta"><span>{dateShort(c.date)}</span><span>valor {brl(c.value)}</span>
+                        {c.paid > 0 && <span>pago {brl(c.paid)}</span>}</div></div>
+                    <strong className="amount warn">{brl(c.value - c.paid)}</strong>
+                    {owner && <button onClick={() => setPaying({ target: { kind: c.kind, id: c.id } })}>Receber</button>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {finance.payments.length > 0 && (
+            <>
+              <h3>Histórico</h3>
+              <ul className="cards">
+                {finance.payments.map(p => (
+                  <PaymentRow key={p.id} payment={p}
+                              onCancel={owner && !p.canceled ? () => cancelPayment(p.id, p.amount) : undefined} />
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      ) : finance && (
+        <EmptyState icon="money" title="Nada cobrado ainda"
+                    text="Pacotes com valor e sessões avulsas realizadas aparecem aqui, com o que já foi pago." />
+      )}
+
+      {owner && paying && (
+        <PaymentSheet patientId={patient.id} target={paying.target} onClose={() => setPaying(null)}
+                      onSaved={async () => { setPaying(null); toast('Pagamento registrado'); await load(); }} />
+      )}
       {owner && selling && (
         <SaleSheet patientId={patient.id} catalog={catalog} onCancel={() => setSelling(false)}
                    onSold={async () => { setSelling(false); toast('Pacote vendido'); await load(); }} />

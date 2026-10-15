@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { api, ApiError, whatsappLink, type Appointment, type AppointmentStatus, type Patient, type PatientPackage,
   type Service } from './api';
 import { addDays, dateOf, dayLabel, minutesBetween, nowLocal, timeOf, today, weekStart } from './dates';
+import { brl, moneyInput, parseMoney, sessionPaymentState } from './finance';
 import { confirmationMessage, renewalMessage, sessionsLabel } from './messages';
+import { PaymentSheet } from './PaymentSheet';
 import { dayChip, daySummary, longDayLabel, primaryAction, summaryText } from './panel';
 import { isoWeekday, MAX_OCCURRENCES, seriesDates, WEEKDAYS } from './recurrence';
 import { navigate } from './router';
@@ -235,6 +237,8 @@ export function AppointmentCard({ item, owner, started, onChanged, onError, onRe
   onError: (message: string) => void; onReschedule?: () => void;
 }) {
   const { toast, confirm } = useUi();
+  const [paying, setPaying] = useState(false);
+  const [pricing, setPricing] = useState(false);
 
   async function run(action: () => Promise<unknown>, message: string) {
     onError('');
@@ -292,12 +296,17 @@ export function AppointmentCard({ item, owner, started, onChanged, onError, onRe
     ? whatsappLink(item.patientWhatsapp, confirmationMessage(item.patientName ?? '', item.serviceName ?? '', item.startsAt, today()))
     : null;
   const primary = primaryAction(item, started, !!confirmLink);
+  const single = !item.patientPackageId;
+  const payState = single && !canceled ? sessionPaymentState(item.price, item.paidAmount) : null;
   const menu: MenuEntry[] = owner ? [
     item.status === 'SCHEDULED' && primary !== 'confirm' && { label: 'Marcar como confirmada', icon: 'check', onClick: () => setStatus('CONFIRMED', 'Sessão confirmada') },
     open && started && { label: 'Marcar falta', icon: 'x', onClick: () => setStatus('NO_SHOW', 'Falta registrada') },
     open && onReschedule && { label: 'Remarcar', icon: 'calendar', onClick: onReschedule },
     (item.status === 'DONE' || item.status === 'NO_SHOW') && { label: 'Desfazer', icon: 'repeat', onClick: () => setStatus('CONFIRMED', 'Status desfeito') },
     canceled && { label: 'Reativar', icon: 'repeat', onClick: () => setStatus('SCHEDULED', 'Sessão reativada') },
+    single && !canceled && item.price !== null && item.paidAmount < item.price &&
+      { label: 'Registrar pagamento', icon: 'money', onClick: () => setPaying(true) },
+    single && !canceled && { label: 'Valor da sessão', icon: 'tag', onClick: () => setPricing(true) },
     item.patientId && { label: 'Ver paciente', icon: 'users', onClick: () => navigate('/painel/pacientes/' + item.patientId) },
     open && { label: 'Cancelar sessão', icon: 'trash', danger: true, onClick: cancel },
     open && item.seriesId && { label: 'Cancelar próximas', icon: 'repeat', danger: true, onClick: cancelUpcoming }
@@ -320,7 +329,8 @@ export function AppointmentCard({ item, owner, started, onChanged, onError, onRe
           {!canceled && (item.patientPackageId
             ? <span className={item.packageRemaining !== null && item.packageRemaining <= 2 ? 'pill warn' : 'pill'}>
                 {item.packageName} · {item.packageRemaining} {item.packageRemaining === 1 ? 'restante' : 'restantes'}</span>
-            : <span className="pill">avulsa</span>)}
+            : <span className="pill">avulsa{item.price !== null && ` · ${item.price === 0 ? 'cortesia' : brl(item.price)}`}</span>)}
+          {payState && item.status === 'DONE' && <span className={payState === 'pago' ? 'pill ok' : 'pill warn'}>{payState}</span>}
           {item.originalStartsAt && <span>remarcada (era {dayLabel(item.originalStartsAt)} {timeOf(item.originalStartsAt)})</span>}
         </div>
         {item.notes && <p className="appt-notes">{item.notes}</p>}
@@ -334,7 +344,44 @@ export function AppointmentCard({ item, owner, started, onChanged, onError, onRe
         {owner && primary === 'done' && <button className="primary" onClick={() => setStatus('DONE', 'Sessão realizada')}><Icon name="check" size={18} /> Realizada</button>}
         <Menu label={`Ações da sessão de ${item.patientName}`} items={menu} />
       </div>
+      {paying && item.patientId && (
+        <PaymentSheet patientId={item.patientId} target={{ kind: 'SESSAO', id: item.id, amount: item.price,
+                        label: `${item.serviceName} · ${dayLabel(item.startsAt)} (sessão desta agenda)` }} onClose={() => setPaying(false)}
+                      onSaved={async () => { setPaying(false); toast('Pagamento registrado'); await onChanged(); }} />
+      )}
+      {pricing && (
+        <PriceSheet item={item} onClose={() => setPricing(false)}
+                    onSaved={async () => { setPricing(false); toast('Valor da sessão salvo'); await onChanged(); }} />
+      )}
     </li>
+  );
+}
+
+/** Valor desta sessão avulsa (desconto ou cortesia); não muda o preço do serviço. */
+function PriceSheet({ item, onClose, onSaved }: { item: Appointment; onClose: () => void; onSaved: () => void }) {
+  const [price, setPrice] = useState(moneyInput(item.price));
+  const [error, setError] = useState('');
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const value = parseMoney(price);
+    if (value !== null && Number.isNaN(value)) { setError('Valor inválido. Ex.: 90,00'); return; }
+    try {
+      await api(`/api/v1/appointments/${item.id}/price`, 'PUT', { price: value });
+      onSaved();
+    } catch (e) { setError((e as Error).message); }
+  }
+  return (
+    <Sheet title="Valor da sessão" onClose={onClose}>
+      <form className="form" onSubmit={submit}>
+        <p className="muted small">{item.serviceName} de {item.patientName}. Use 0 para cortesia; em branco, a sessão não entra na cobrança.</p>
+        <label>Valor<input inputMode="decimal" placeholder="Ex.: 90,00" value={price} onChange={e => setPrice(e.target.value)} /></label>
+        {error && <p className="error-box" role="alert">{error}</p>}
+        <div className="sheet-actions">
+          <button type="button" onClick={onClose}>Cancelar</button>
+          <button className="primary">Salvar</button>
+        </div>
+      </form>
+    </Sheet>
   );
 }
 
