@@ -42,7 +42,7 @@ export function TodayTab({ owner, profile, pendingRequests }: { owner: boolean; 
 
   const todays = (items ?? []).filter(i => dateOf(i.startsAt) === day && i.status !== 'CANCELED');
   const tomorrowToConfirm = (items ?? []).filter(i => dateOf(i.startsAt) !== day && i.kind === 'SESSION' && i.status === 'SCHEDULED');
-  const summary = daySummary(todays);
+  const summary = daySummary(todays, nowLocal());
   const now = nowLocal();
   const pending = setup.filter(s => !s.done);
 

@@ -1,7 +1,7 @@
 /** Regras de tela do painel (puras, testáveis sem navegador). */
 import { weekday } from './dates.ts';
 
-type Item = { kind: 'SESSION' | 'BLOCK'; status: 'SCHEDULED' | 'CONFIRMED' | 'DONE' | 'NO_SHOW' | 'CANCELED' };
+type Item = { kind: 'SESSION' | 'BLOCK'; status: 'SCHEDULED' | 'CONFIRMED' | 'DONE' | 'NO_SHOW' | 'CANCELED'; startsAt?: string };
 
 const DAYS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro',
@@ -32,22 +32,34 @@ export function dayChip(isoDate: string): { day: string; number: string } {
   return { day: SHORT_DAYS[weekday(isoDate)], number: String(Number(isoDate.slice(8, 10))) };
 }
 
-/** Resumo do dia: sessões (sem bloqueios e canceladas), quantas faltam confirmar e quantas já foram realizadas. */
-export function daySummary(items: Item[]): { sessions: number; toConfirm: number; done: number } {
+/**
+ * Resumo do dia: sessões (sem bloqueios e canceladas), quantas faltam confirmar (só as que ainda não começaram),
+ * quantas já passaram sem registro (nem realizada nem falta) e quantas foram realizadas. {@code now}: "AAAA-MM-DDTHH:MM".
+ */
+export function daySummary(items: Item[], now = ''): { sessions: number; toConfirm: number; pending: number; done: number } {
   const sessions = items.filter(i => i.kind === 'SESSION' && i.status !== 'CANCELED');
+  const started = (i: Item) => !!now && !!i.startsAt && i.startsAt.slice(0, 16) <= now;
   return {
     sessions: sessions.length,
-    toConfirm: sessions.filter(i => i.status === 'SCHEDULED').length,
+    toConfirm: sessions.filter(i => i.status === 'SCHEDULED' && !started(i)).length,
+    pending: sessions.filter(i => (i.status === 'SCHEDULED' || i.status === 'CONFIRMED') && started(i)).length,
     done: sessions.filter(i => i.status === 'DONE').length
   };
 }
 
-export function summaryText(s: { sessions: number; toConfirm: number; done: number }): string {
+export function summaryText(s: { sessions: number; toConfirm: number; pending?: number; done: number }): string {
   if (s.sessions === 0) return 'Nenhuma sessão';
-  const parts = [`${s.sessions} ${s.sessions === 1 ? 'sessão' : 'sessões'}`];
+  const parts = [sessionsCount(s.sessions)];
   if (s.toConfirm) parts.push(`${s.toConfirm} a confirmar`);
+  if (s.pending) parts.push(`${s.pending} sem registro`);
   if (s.done) parts.push(`${s.done} ${s.done === 1 ? 'realizada' : 'realizadas'}`);
   return parts.join(' · ');
+}
+
+/** "nenhuma sessão", "1 sessão", "3 sessões". */
+export function sessionsCount(n: number): string {
+  if (n === 0) return 'nenhuma sessão';
+  return n === 1 ? '1 sessão' : `${n} sessões`;
 }
 
 export type PrimaryAction = 'ask-confirmation' | 'confirm' | 'done' | null;

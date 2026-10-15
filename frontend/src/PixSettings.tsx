@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, type PixKeyType, type PixSettings as Settings } from './api';
+import { maskCpf, maskPhone } from './format';
 import { useUi } from './ui';
 
 const TYPES: { id: PixKeyType; label: string; placeholder: string; inputMode?: 'numeric' | 'tel' | 'email' }[] = [
@@ -45,7 +46,7 @@ export function PixSettings({ owner, defaultName }: { owner: boolean; defaultNam
   }
 
   return (
-    <form className="card form" onSubmit={save}>
+    <form onInput={() => setError('')} className="card form" onSubmit={save}>
       <h3>Pix</h3>
       <p className="muted small">
         Com a chave cadastrada, o paciente pode pagar pelo site na hora de agendar (QR Code com o valor certo) e
@@ -59,7 +60,8 @@ export function PixSettings({ owner, defaultName }: { owner: boolean; defaultNam
           ))}
         </div>
         <label>Chave Pix<input required inputMode={type.inputMode} placeholder={type.placeholder} value={form.key ?? ''}
-                               onChange={e => setForm({ ...form, keyType: type.id, key: e.target.value })} /></label>
+                               onChange={e => setForm({ ...form, keyType: type.id, key: type.id === 'TELEFONE' ? maskPhone(e.target.value)
+                                 : type.id === 'CPF' ? maskCpf(e.target.value) : e.target.value })} /></label>
         <div className="row">
           <label>Nome de quem recebe<input required maxLength={60} placeholder={defaultName} value={form.name ?? ''}
                                            onChange={e => setForm({ ...form, name: e.target.value })} /></label>

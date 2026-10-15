@@ -31,7 +31,7 @@ export function BookingSettings({ owner }: { owner: boolean }) {
 
   const summary = hoursSummary(config.hours);
   return (
-    <form className="card form" onSubmit={save}>
+    <form onInput={() => setError('')} className="card form" onSubmit={save}>
       <h3>Horário de atendimento e agendamento pelo site</h3>
       <fieldset disabled={!owner} className="stack">
         <p className="muted small">

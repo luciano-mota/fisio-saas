@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError, money, uploadReceipt, whatsappLink, type BookingSent, type PublicClinic, type PublicService } from './api';
 import { nextDays, requestSentMessage, whenLabel } from './booking';
 import { dayLabel, today } from './dates';
-import { isValidCpf } from './format';
+import { isValidCpf, maskCpf, maskPhone } from './format';
 import { dayChip } from './panel';
 import { preparePhoto } from './photoImage';
 import { Brand, useSiteLook } from './PublicPage';
 import { navigate } from './router';
 import { SiteIcon } from './SiteIcons';
 
-const DAYS_AHEAD = 21;
 type Step = 'servico' | 'horario' | 'dados' | 'pix' | 'enviado';
 type Form = {
   fullName: string; cpf: string; whatsapp: string; birthDate: string; notes: string; consent: boolean; website: string;
@@ -50,13 +49,21 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
     fullName: '', cpf: '', whatsapp: '', birthDate: '', notes: '', consent: false, website: '', payMethod: 'PIX'
   });
   const [error, setError] = useState('');
+  const [cpfInvalid, setCpfInvalid] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const cpfRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<BookingSent | null>(null);
   const [receipt, setReceipt] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [copied, setCopied] = useState(false);
   const pix = clinic.booking.pix;
+  /** Mexeu no formulário: a mensagem de erro antiga some. */
+  const edit = (patch: Partial<Form>) => { setForm(f => ({ ...f, ...patch })); setError(''); setCpfInvalid(false); };
+  // O erro aparece onde a pessoa está olhando (no celular, o topo da página fica fora da tela).
+  useEffect(() => { if (error) errorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [error]);
   const pixFor = (s: PublicService | null) => pix && s !== null && s.price !== null && s.price > 0;
-  const days = nextDays(today(), DAYS_AHEAD);
+  // Do dia de hoje até o limite configurado pela clínica ("agendar até N dias").
+  const days = nextDays(today(), (clinic.booking.maxDays ?? 30) + 1);
   const back = () => { navigate(`/c/${clinic.slug}`); window.scrollTo(0, 0); };
 
   const loadSlots = useCallback(async (s: PublicService) => {
@@ -75,7 +82,12 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError('');
-    if (!isValidCpf(form.cpf)) { setError('CPF inválido. Confira os números.'); return; }
+    if (!isValidCpf(form.cpf)) {
+      setError('CPF inválido. Confira os números.');
+      setCpfInvalid(true);
+      cpfRef.current?.focus();
+      return;
+    }
     setBusy(true);
     try {
       const result = await api<BookingSent>(`/api/v1/public/clinics/${clinic.slug}/booking-requests`, 'POST', {
@@ -149,7 +161,7 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
               ))}
             </ol>
           )}
-          {error && <p className="booking-error" role="alert">{error}</p>}
+          {error && step !== 'dados' && <p className="booking-error" role="alert" ref={errorRef}>{error}</p>}
 
           {step === 'servico' && (
             <div className="booking-card">
@@ -218,23 +230,24 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
               </div>
               <h2>Seus dados</h2>
               <label>Nome completo<input required maxLength={120} autoComplete="name" value={form.fullName}
-                                         onChange={e => setForm({ ...form, fullName: e.target.value })} /></label>
+                                         onChange={e => edit({ fullName: e.target.value })} /></label>
               <div className="booking-row">
-                <label>CPF<input required inputMode="numeric" maxLength={14} placeholder="000.000.000-00" value={form.cpf}
-                                 onChange={e => setForm({ ...form, cpf: e.target.value })} /></label>
+                <label>CPF<input required inputMode="numeric" maxLength={14} placeholder="000.000.000-00" value={form.cpf} ref={cpfRef}
+                                 aria-invalid={cpfInvalid} aria-describedby={cpfInvalid ? 'booking-error' : undefined}
+                                 onChange={e => edit({ cpf: maskCpf(e.target.value) })} /></label>
                 <label>WhatsApp<input required inputMode="tel" maxLength={20} autoComplete="tel" placeholder="(98) 99999-0000"
-                                      value={form.whatsapp} onChange={e => setForm({ ...form, whatsapp: e.target.value })} /></label>
+                                      value={form.whatsapp} onChange={e => edit({ whatsapp: maskPhone(e.target.value) })} /></label>
               </div>
               <label>Data de nascimento <small>(opcional)</small><input type="date" value={form.birthDate} max={today()}
-                                                                         onChange={e => setForm({ ...form, birthDate: e.target.value })} /></label>
+                                                                         onChange={e => edit({ birthDate: e.target.value })} /></label>
               <label>Observação <small>(opcional)</small><textarea maxLength={500} rows={3} value={form.notes}
                                                                    placeholder="Ex.: é a primeira vez; dor no joelho direito"
-                                                                   onChange={e => setForm({ ...form, notes: e.target.value })} /></label>
+                                                                   onChange={e => edit({ notes: e.target.value })} /></label>
               {/* Campo escondido: pessoas não veem; robôs preenchem e o pedido é descartado. */}
               <input className="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" value={form.website}
-                     onChange={e => setForm({ ...form, website: e.target.value })} name="website" />
+                     onChange={e => edit({ website: e.target.value })} name="website" />
               <label className="booking-consent">
-                <input type="checkbox" required checked={form.consent} onChange={e => setForm({ ...form, consent: e.target.checked })} />
+                <input type="checkbox" required checked={form.consent} onChange={e => edit({ consent: e.target.checked })} />
                 <span>Autorizo {clinic.displayName} a usar meu nome, CPF e WhatsApp para identificar meu cadastro e confirmar
                   o agendamento. O CPF também serve para emitir recibo.{' '}
                   <a href="/privacidade" target="_blank" rel="noreferrer">Política de privacidade</a>.</span>
@@ -243,17 +256,18 @@ export function BookingPage({ clinic }: { clinic: PublicClinic }) {
                 <fieldset className="booking-pay">
                   <legend>Como prefere pagar? <small>{money(service.price)}</small></legend>
                   <label className={form.payMethod === 'PIX' ? 'on' : ''}>
-                    <input type="radio" name="pay" checked={form.payMethod === 'PIX'} onChange={() => setForm({ ...form, payMethod: 'PIX' })} />
+                    <input type="radio" name="pay" checked={form.payMethod === 'PIX'} onChange={() => edit({ payMethod: 'PIX' })} />
                     <span><strong>Pagar agora via Pix</strong><small>QR Code ou copia e cola; depois envie o comprovante</small></span>
                   </label>
                   <label className={form.payMethod === 'CLINICA' ? 'on' : ''}>
-                    <input type="radio" name="pay" checked={form.payMethod === 'CLINICA'} onChange={() => setForm({ ...form, payMethod: 'CLINICA' })} />
+                    <input type="radio" name="pay" checked={form.payMethod === 'CLINICA'} onChange={() => edit({ payMethod: 'CLINICA' })} />
                     <span><strong>Pagar na clínica</strong><small>No dia do atendimento</small></span>
                   </label>
                 </fieldset>
               ) : (
                 <p className="booking-muted">{priceText(service, pix)}. O horário fica reservado até a clínica confirmar pelo WhatsApp.</p>
               )}
+              {error && <p className="booking-error" id="booking-error" role="alert" ref={errorRef}>{error}</p>}
               <div className="booking-actions">
                 <button className="btn btn-primary btn-lg" disabled={busy}>
                   {busy ? 'Enviando…' : pixFor(service) && form.payMethod === 'PIX' ? 'Pedir horário e pagar' : 'Pedir este horário'}</button>

@@ -1,5 +1,6 @@
 package com.fisiosaas.patient;
 
+import com.fisiosaas.api.ConflictException;
 import com.fisiosaas.identity.CurrentClinic;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -113,7 +114,9 @@ public class PatientController {
 
     private static Clean clean(PatientRequest body) {
         String cpf = digitsOrNull(body.cpf());
-        if (cpf != null && !Cpf.isValid(cpf)) throw new IllegalArgumentException("CPF inválido");
+        // CPF obrigatório: é a chave que evita paciente duplicado (como no agendamento pelo site) e vai no recibo.
+        if (cpf == null) throw new IllegalArgumentException("Informe o CPF do paciente");
+        if (!Cpf.isValid(cpf)) throw new IllegalArgumentException("CPF inválido");
         String whatsapp = digitsOrNull(body.whatsapp());
         if (whatsapp != null && (whatsapp.length() < 10 || whatsapp.length() > 13)) {
             throw new IllegalArgumentException("WhatsApp inválido: informe DDD e número");
@@ -125,11 +128,10 @@ public class PatientController {
     }
 
     private void requireUniqueCpf(UUID clinicId, String cpf, UUID self) {
-        if (cpf == null) return;
-        Integer found = jdbc.queryForObject("""
-                SELECT count(*) FROM patients WHERE clinic_id = ? AND cpf = ? AND (?::uuid IS NULL OR id <> ?::uuid)""",
-            Integer.class, clinicId, cpf, self, self);
-        if (found != null && found > 0) throw new IllegalArgumentException("Já existe paciente com este CPF");
+        String other = jdbc.query("""
+                SELECT full_name FROM patients WHERE clinic_id = ? AND cpf = ? AND (?::uuid IS NULL OR id <> ?::uuid)""",
+            (rs, n) -> rs.getString(1), clinicId, cpf, self, self).stream().findFirst().orElse(null);
+        if (other != null) throw new ConflictException("Já existe paciente com este CPF: " + other);
     }
 
     /** "  João  da SILVA " → "joao da silva". */

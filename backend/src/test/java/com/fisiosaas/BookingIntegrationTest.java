@@ -149,7 +149,7 @@ class BookingIntegrationTest extends IntegrationTest {
 
     @Test
     void pacienteAntigoSemCpfEhSugeridoPeloWhatsappELigado() throws Exception {
-        String antiga = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Ana Paula\",\"whatsapp\":\"98988883333\"}");
+        String antiga = legacyPatient(clinicA, "Ana Paula", "98988883333"); // cadastro antigo, sem CPF
         request("fisio-ana", pilatesA, "10:00", CPF_ANA, "Ana Paula Reis", "98988883333").andExpect(status().isAccepted());
         mvc.perform(get("/api/v1/booking-requests").with(user(OWNER_A)))
             .andExpect(jsonPath("$[0].patient").doesNotExist())
@@ -205,7 +205,7 @@ class BookingIntegrationTest extends IntegrationTest {
         mvc.perform(get("/api/v1/clinic/booking").with(user(OWNER_B)))
             .andExpect(jsonPath("$.enabled").value(false)).andExpect(jsonPath("$.hours", hasSize(0)));
         // Ligar o paciente de outra clínica no aceite não funciona.
-        String paulo = create("/api/v1/patients", OWNER_B, "{\"fullName\":\"Paulo\",\"whatsapp\":\"98988881111\"}");
+        String paulo = legacyPatient(clinicB, "Paulo", "98988881111"); // sem CPF, de outra clínica
         send(post("/api/v1/booking-requests/" + id + "/accept"), OWNER_A, "{\"linkPatientId\":\"" + paulo + "\"}")
             .andExpect(status().isBadRequest());
         assertThat(jdbc.queryForObject("SELECT cpf FROM patients WHERE id = ?::uuid", String.class, paulo)).isNull();

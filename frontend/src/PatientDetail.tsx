@@ -73,6 +73,10 @@ export function PatientDetail({ patientId, owner, onBack }: { patientId: string;
           <h1>{patient.fullName}{!patient.active && <span className="pill">desativado</span>}</h1>
           <p className="muted">{[patient.whatsapp && formatPhone(patient.whatsapp), contact].filter(Boolean).join(' · ') || 'Sem contato cadastrado'}</p>
           {patient.adminNotes && <p className="small">{patient.adminNotes}</p>}
+          {!patient.cpf && patient.active && (
+            <p className="notice small">Cadastro sem CPF: complete para evitar duplicidade e emitir recibo.
+              {owner && <> <button className="link-button" onClick={() => { setError(''); setEditing(toForm(patient)); }}>Completar CPF</button></>}</p>
+          )}
         </div>
         <div className="profile-actions">
           {patient.whatsapp && (
@@ -233,7 +237,7 @@ function SaleSheet({ patientId, catalog, onCancel, onSold }: {
 
   return (
     <Sheet title="Vender pacote" onClose={onCancel}>
-      <form className="form" onSubmit={submit}>
+      <form onInput={() => setError('')} className="form" onSubmit={submit}>
         {catalog.length === 0 && <p className="notice small">Cadastre pacotes em Serviços e pacotes primeiro.</p>}
         <label>Pacote
           <select required value={packageId} aria-label="Pacote" onChange={e => choose(e.target.value)}>

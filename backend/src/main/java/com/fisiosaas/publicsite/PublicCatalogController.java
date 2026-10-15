@@ -38,7 +38,7 @@ public class PublicCatalogController {
 
     /** Agendamento pelo site ligado? E o horário de atendimento (weekday ISO, "HH:mm"). */
     /** {@code pix}: a clínica cadastrou chave Pix (o site oferece "Pagar agora via Pix" quando o preço é visível). */
-    public record Booking(boolean enabled, List<OpeningHours> hours, boolean pix) {}
+    public record Booking(boolean enabled, List<OpeningHours> hours, boolean pix, int maxDays) {}
 
     public record OpeningHours(int weekday, String start, String end) {}
 
@@ -77,7 +77,8 @@ public class PublicCatalogController {
                 rs.getString("crefito"), rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
                 new Theme(rs.getString("color_primary"), rs.getString("color_secondary"),
                     rs.getString("color_accent")), (Long) rs.getObject("logo_version"), null, List.of(),
-                    new Booking(rs.getBoolean("booking_enabled"), List.of(), rs.getString("pix_key") != null)),
+                    new Booking(rs.getBoolean("booking_enabled"), List.of(), rs.getString("pix_key") != null,
+                        rs.getInt("booking_max_days"))),
                 new Content(rs.getString("site_style"), rs.getString("site_fonts"), rs.getString("site_template"),
                     rs.getString("site_mood"), rs.getString("site_headline"),
                     rs.getString("site_education"), rs.getString("site_hours"), rs.getString("site_service_area"),
@@ -116,7 +117,7 @@ public class PublicCatalogController {
             (rs, n) -> new OpeningHours(rs.getInt(1), rs.getString(2), rs.getString(3)), clinicId);
         PublicClinic body = new PublicClinic(base.slug(), base.displayName(), base.professionalName(),
             base.crefito(), base.whatsapp(), base.address(), base.about(), base.theme(), base.logoVersion(), site,
-            services, new Booking(base.booking().enabled(), hours, base.booking().pix()));
+            services, new Booking(base.booking().enabled(), hours, base.booking().pix(), base.booking().maxDays()));
         return ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(body);
     }
 

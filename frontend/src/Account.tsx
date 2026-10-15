@@ -25,7 +25,7 @@ export function PasswordForm({ me, onDone, submitLabel = 'Trocar senha' }: { me:
   }
 
   return (
-    <form className="form" onSubmit={submit}>
+    <form onInput={() => setError('')} className="form" onSubmit={submit}>
       <input type="email" autoComplete="username" value={me.email} readOnly hidden />
       <label>{me.mustChangePassword ? 'Senha temporária' : 'Senha atual'}
         <input type="password" required autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} /></label>
@@ -154,7 +154,7 @@ function MemberSheet({ member, onClose, onSaved }: { member?: Member; onClose: (
   }
   return (
     <Sheet title={member ? 'Editar acesso' : 'Dar acesso ao painel'} onClose={onClose}>
-      <form className="form" onSubmit={submit}>
+      <form onInput={() => setError('')} className="form" onSubmit={submit}>
         {!member && <label>E-mail<input type="email" required maxLength={255} value={email} onChange={e => setEmail(e.target.value)} /></label>}
         <label>Nome<input maxLength={120} value={fullName} placeholder="Ex.: Carla (recepção)" onChange={e => setFullName(e.target.value)} /></label>
         <fieldset className="field">

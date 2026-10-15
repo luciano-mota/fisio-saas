@@ -44,7 +44,7 @@ export function SiteTab({ owner, profile, onSaved, onLogoChange }: {
       </PageHeader>
       {!profile.publicPageEnabled && <p className="notice small">O site está desativado. Ative em “Clínica” → Página pública.</p>}
 
-      <form className="stack" onSubmit={save}>
+      <form onInput={() => setError('')} className="stack" onSubmit={save}>
         <fieldset disabled={!owner} className="stack">
           <div className="card form">
           <LogoSection owner={owner} profile={profile} onLogoChange={onLogoChange}
@@ -326,7 +326,7 @@ function ItemsEditor<T extends { id: string }>({ owner, url, labels, fields, ren
         ))}
       </ul>
       {owner && (
-        <form className="form" onSubmit={save}>
+        <form onInput={() => setError('')} className="form" onSubmit={save}>
           <h4>{editing ? labels.edit : labels.add}</h4>
           {fields.map(f => (
             <label key={f.key}>{f.label}

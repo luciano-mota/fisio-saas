@@ -42,7 +42,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/public/clinics/{slug}")
 public class PublicBookingController {
     private static final Logger log = LoggerFactory.getLogger(PublicBookingController.class);
-    static final int MAX_RANGE_DAYS = 31;
+    /** Até o máximo configurável de dias à frente (180) mais hoje. */
+    static final int MAX_RANGE_DAYS = 181;
     static final int MAX_PENDING_PER_CPF = 2;
     static final String SENT = "Pedido enviado! A clínica vai confirmar o horário pelo WhatsApp.";
 
