@@ -48,6 +48,11 @@
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-database-postgresql</artifactId>
     </dependency>
+    <!-- Sessão de login guardada no PostgreSQL: sobrevive a deploys e reinícios (o Render reinicia a instância). -->
+    <dependency>
+      <groupId>org.springframework.session</groupId>
+      <artifactId>spring-session-jdbc</artifactId>
+    </dependency>
     <!-- QR Code do Pix (gera SVG no servidor; sem serviço externo). -->
     <dependency>
       <groupId>com.google.zxing</groupId>
