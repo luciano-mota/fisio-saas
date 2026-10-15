@@ -4,6 +4,7 @@ import { themeVariables } from './color';
 import { AgendaTab } from './Agenda';
 import { CatalogTab } from './Catalog';
 import { AccountTab, MustChangePassword } from './Account';
+import { BirthdayGreeting } from './Birthdays';
 import { ClinicTab } from './ClinicTab';
 import { FinanceTab, type FinanceSection } from './Finance';
 import { PatientsTab } from './Patients';
@@ -112,7 +113,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
           {tab === 'hoje' && <TodayTab owner={owner} profile={profile} pendingRequests={pending} />}
           {tab === 'agenda' && <AgendaTab owner={owner} action={sub} />}
           {tab === 'solicitacoes' && <RequestsTab owner={owner} onChanged={refreshPending} />}
-          {tab === 'pacientes' && <PatientsTab owner={owner} patientId={sub} />}
+          {tab === 'pacientes' && <PatientsTab owner={owner} patientId={sub} clinicName={name} />}
           {tab === 'financeiro' && <FinanceTab owner={owner} clinicName={name}
                                               section={(['devendo', 'pagamentos', 'receber', 'maquininhas'].includes(sub ?? '') ? sub : 'resumo') as FinanceSection} />}
           {tab === 'catalogo' && <CatalogTab owner={owner} section={sub === 'pacotes' ? 'pacotes' : 'servicos'} />}
@@ -120,6 +121,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
           {tab === 'conta' && <AccountTab me={me} />}
           {tab === 'clinica' && profile && <ClinicTab owner={owner} profile={profile} onSaved={saved} />}
         </main>
+        <BirthdayGreeting email={me.email} clinicName={name} />
 
         <nav className="bottom-nav" aria-label="Seções do painel">
           {BOTTOM.map(t => (

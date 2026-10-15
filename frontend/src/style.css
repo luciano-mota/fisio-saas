@@ -655,3 +655,36 @@ p.receipt-toolbar { display: block; }
   .receipt-paper { border: 0; box-shadow: none; padding: 0; }
 }
 .login-card.wide { width: min(560px, 100%); }
+
+/* ---------- Aniversariantes ---------- */
+.bday-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.bday-today { color: #c2410c; }
+button.bday-send { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 12px; white-space: nowrap;
+  background: #e8f8ef; color: #166534; border-color: #bbf7d0; font-weight: 700; }
+button.bday-send:hover { background: #d3f3e1; }
+.msg-editor textarea { min-height: 140px; line-height: 1.5; }
+.msg-tools { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 4px; padding: 8px; margin-top: 8px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.emoji-grid button { min-height: 42px; padding: 0; font-size: 1.35rem; border: 0; background: transparent; border-radius: 10px; }
+.emoji-grid button:hover { background: var(--hover); }
+
+.overlay.bday-modal .sheet { position: relative; overflow: hidden; max-width: 460px; text-align: center; }
+.bday-cake { font-size: 3.4rem; line-height: 1; margin: 4px 0 8px; animation: bday-bounce 1.2s ease-in-out infinite; }
+.overlay.bday-modal p.bday-lead { color: var(--muted); margin: 0 0 14px; }
+.bday-names { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 8px; text-align: left; position: relative; }
+.bday-names li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px;
+  border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; animation: bday-in .5s ease both; }
+.bday-names li:nth-child(2) { animation-delay: .08s; } .bday-names li:nth-child(3) { animation-delay: .16s; }
+.bday-names li:nth-child(n+4) { animation-delay: .24s; }
+.bday-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.bday-confetti i { position: absolute; top: -12px; left: calc(var(--i) * 5.6%); width: 8px; height: 12px; border-radius: 2px;
+  background: hsl(calc(var(--i) * 47), 85%, 60%); opacity: .9;
+  animation: bday-fall calc(2.2s + var(--i) * .07s) linear calc(var(--i) * -.17s) infinite; }
+@keyframes bday-fall { to { transform: translateY(560px) rotate(540deg); } }
+@keyframes bday-bounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.06); } }
+@keyframes bday-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .bday-cake, .bday-names li { animation: none; }
+  .bday-confetti { display: none; }
+}

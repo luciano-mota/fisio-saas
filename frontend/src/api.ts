@@ -40,6 +40,14 @@ export type Patient = {
   adminNotes: string | null; active: boolean;
 };
 
+/** Aniversariante num período (date = dia do aniversário no período; age = idade que completa). */
+export type Birthday = {
+  id: string; fullName: string; whatsapp: string | null; birthDate: string; active: boolean; date: string; age: number;
+};
+export type BirthdayList = {
+  today: string; from: string; to: string; template: string; customTemplate: boolean; items: Birthday[];
+};
+
 export type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'DONE' | 'NO_SHOW' | 'CANCELED';
 export type Appointment = {
   id: string; kind: 'SESSION' | 'BLOCK'; patientId: string | null; patientName: string | null;
