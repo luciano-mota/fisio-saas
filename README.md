@@ -61,6 +61,14 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   que mudou (nome/WhatsApp) para a clínica decidir se atualiza; paciente antigo sem CPF é sugerido pelo WhatsApp;
   CPF novo cria o cadastro ao aceitar. Aceitar põe a sessão na agenda (usa o pacote do paciente se houver) e abre a
   mensagem pronta no WhatsApp; recusar guarda o motivo. O site nunca revela se um CPF é paciente da clínica.
+- **Financeiro**: pagamentos por Pix, dinheiro, débito ou crédito (até 12x), ligados a um pacote, a uma sessão
+  avulsa ou "por conta". **Maquininhas** com taxa do débito, crédito à vista, crédito parcelado (2x a 12x), tarifa
+  fixa e prazo; o servidor calcula taxa, líquido e os depósitos previstos (um por parcela, ou um só se antecipado).
+  Opção de **repassar a taxa** ao paciente (cobra valor ÷ (1 − taxa) para a clínica receber o valor cheio). **Quem
+  está devendo** = pacotes vendidos com valor + sessões avulsas realizadas − pagamentos, com lembrete pronto no
+  WhatsApp. Resumo do mês (recebido, taxas, líquido, por forma), **a receber** da maquininha (marcar como
+  recebido), estorno (o pagamento fica no histórico) e a conta de cada paciente na ficha. A sessão avulsa guarda o
+  valor do serviço no dia em que foi marcada (pode ter desconto ou cortesia) e a agenda mostra "a pagar"/"pago".
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do
   site são apagadas de verdade ao remover (não são histórico e podem mostrar pessoas — LGPD).
 
@@ -128,6 +136,10 @@ isolamento entre clínicas, STAFF só consulta).
 | GET · POST · PUT `/{id}` · POST `/{id}/move` · DELETE `/{id}` | `/api/v1/clinic/testimonials` · `/api/v1/clinic/faqs` | logado · OWNER |
 | GET · PUT | `/api/v1/clinic/booking` (horário de atendimento e regras do agendamento) | logado · OWNER |
 | GET `?status=PENDING\|ALL` · GET `/count` · GET `/{id}` · POST `/{id}/accept` · POST `/{id}/decline` | `/api/v1/booking-requests` | logado · OWNER |
+| GET · POST · PUT `/{id}` · DELETE `/{id}` | `/api/v1/card-machines` (maquininhas e taxas) | logado · OWNER |
+| GET `?from&to` · POST · POST `/preview` · POST `/{id}/cancel` (estorno) | `/api/v1/payments` | logado · OWNER |
+| GET | `/api/v1/finance/debtors` · `/api/v1/finance/summary?month=` · `/api/v1/finance/receivables` · `/api/v1/patients/{id}/finance` | logado |
+| POST · PUT | `/api/v1/finance/receivables/{id}/received?received=` · `/api/v1/appointments/{id}/price` | OWNER |
 | GET | `/api/v1/public/clinics/{slug}` · `/{slug}/logo` · `/{slug}/photos/{id}` · `/{slug}/slots?serviceId&from&to` | público |
 | POST | `/api/v1/public/clinics/{slug}/booking-requests` (com CSRF) | público |
 
@@ -151,8 +163,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Próximos passos (ordem sugerida)
 
-1. Pagamentos: lançamentos, maquininhas e taxas (bruto/taxa/líquido), quem está devendo.
-2. Pix com QR Code estático + envio de comprovante no agendamento.
-3. Recibo para IR.
-4. Conta: troca de senha, colaboradores, cadastro de novas clínicas; termos de uso e privacidade (LGPD).
-5. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.
+1. Pix com QR Code estático + envio de comprovante no agendamento.
+2. Recibo para IR.
+3. Conta: troca de senha, colaboradores, cadastro de novas clínicas; termos de uso e privacidade (LGPD).
+4. Pós-MVP: site com IA (Gemini) só para sugerir textos, se fizer falta.

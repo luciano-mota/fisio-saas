@@ -1,6 +1,7 @@
 package com.fisiosaas.agenda;
 
 import com.fisiosaas.api.ConflictException;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -36,14 +37,16 @@ public class Agenda {
                                   UUID serviceId, String serviceName, LocalDateTime startsAt, LocalDateTime endsAt,
                                   String status, String notes, LocalDateTime originalStartsAt, int rescheduleCount,
                                   UUID seriesId, UUID patientPackageId, String packageName, Integer packageRemaining,
-                                  boolean countsAgainstPackage) {}
+                                  boolean countsAgainstPackage, BigDecimal price, BigDecimal paidAmount) {}
 
     private static final String SELECT = """
         SELECT a.*, p.full_name AS patient_name, p.whatsapp AS patient_whatsapp, s.name AS service_name,
                pp.name AS package_name,
                (pp.session_count - (SELECT count(*) FROM appointments x
                                      WHERE x.clinic_id = a.clinic_id AND x.patient_package_id = pp.id
-                                       AND x.counts_against_package))::int AS package_remaining
+                                       AND x.counts_against_package))::int AS package_remaining,
+               (SELECT coalesce(sum(y.amount), 0) FROM payments y
+                 WHERE y.clinic_id = a.clinic_id AND y.appointment_id = a.id AND NOT y.canceled) AS paid_amount
           FROM appointments a
           LEFT JOIN patients p ON p.id = a.patient_id AND p.clinic_id = a.clinic_id
           LEFT JOIN services s ON s.id = a.service_id AND s.clinic_id = a.clinic_id
@@ -144,7 +147,7 @@ public class Agenda {
             original == null ? null : local(original, zone), rs.getInt("reschedule_count"),
             rs.getObject("series_id", UUID.class), rs.getObject("patient_package_id", UUID.class),
             rs.getString("package_name"), (Integer) rs.getObject("package_remaining"),
-            rs.getBoolean("counts_against_package"));
+            rs.getBoolean("counts_against_package"), rs.getBigDecimal("price"), rs.getBigDecimal("paid_amount"));
     }
 
     private static LocalDateTime local(OffsetDateTime instant, ZoneId zone) {
