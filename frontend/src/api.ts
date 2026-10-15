@@ -4,6 +4,28 @@ export type Me = {
   userId: string; email: string; role: 'OWNER' | 'STAFF'; clinicId: string; clinicName: string; fullName: string;
   mustChangePassword: boolean;
 };
+/** Equipe da plataforma (administração): não pertence a nenhuma clínica. */
+export type AdminMe = { email: string; role: 'PLATFORM_ADMIN' };
+export const isAdmin = (me: Me | AdminMe): me is AdminMe => me.role === 'PLATFORM_ADMIN';
+
+/** Situação da assinatura da clínica (status gravado e efetivo: vencida = EXPIRED). */
+export type ClinicStatus = 'TRIAL' | 'ACTIVE' | 'FREE' | 'SUSPENDED' | 'BLOCKED';
+export type EffectiveStatus = ClinicStatus | 'EXPIRED';
+export type ClinicAccessView = {
+  status: ClinicStatus; effectiveStatus: EffectiveStatus; accessUntil: string | null; daysLeft: number | null;
+  readOnly: boolean; warning: 'NONE' | 'SOON' | 'EXPIRED' | 'SUSPENDED'; contactEmail: string | null;
+};
+export type AdminClinic = {
+  id: string; slug: string; displayName: string; ownerEmail: string | null; ownerName: string | null; whatsapp: string | null;
+  createdAt: string; status: ClinicStatus; effectiveStatus: EffectiveStatus; accessUntil: string | null;
+  daysLeft: number | null; statusReason: string | null; publicPageEnabled: boolean; users: number; patients: number;
+};
+export type AdminOverview = { today: string; counts: Record<EffectiveStatus, number>; expiringSoon: number; clinics: AdminClinic[] };
+export type AdminLogEntry = {
+  adminEmail: string; action: string; statusBefore: string; statusAfter: string; accessUntil: string | null;
+  reason: string; createdAt: string;
+};
+export type AdminClinicDetail = { clinic: AdminClinic; history: AdminLogEntry[] };
 export type Member = {
   id: string; email: string; fullName: string | null; role: 'OWNER' | 'STAFF'; active: boolean; mustChangePassword: boolean;
   createdAt: string; me: boolean;

@@ -39,6 +39,11 @@ class SignupIntegrationTest extends IntegrationTest {
             .andExpect(jsonPath("$.publicPageEnabled").value(false));
         assertThat(jdbc.queryForObject("SELECT terms_version FROM clinics WHERE slug = 'fisio-ana-2'", String.class))
             .isEqualTo("2026-10-15");
+        // Começa no período de teste de 30 dias, com o aviso de vencimento no painel.
+        assertThat(jdbc.queryForObject("SELECT status FROM clinics WHERE slug = 'fisio-ana-2'", String.class)).isEqualTo("TRIAL");
+        mvc.perform(get("/api/v1/clinic/access").with(user("nova@clinica.test")))
+            .andExpect(jsonPath("$.status").value("TRIAL")).andExpect(jsonPath("$.daysLeft").value(30))
+            .andExpect(jsonPath("$.readOnly").value(false)).andExpect(jsonPath("$.warning").value("NONE"));
         // A clínica nova começa vazia: não vê nada das outras.
         mvc.perform(get("/api/v1/patients").with(user("nova@clinica.test"))).andExpect(jsonPath("$.length()").value(0));
         mvc.perform(get("/api/v1/team").with(user("nova@clinica.test"))).andExpect(jsonPath("$.length()").value(1));

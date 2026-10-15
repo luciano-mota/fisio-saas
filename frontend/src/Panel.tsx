@@ -3,6 +3,7 @@ import { api, logoUrl, signOut, type ClinicProfile, type Me } from './api';
 import { themeVariables } from './color';
 import { AgendaTab } from './Agenda';
 import { CatalogTab } from './Catalog';
+import { AccessNotice } from './AccessNotice';
 import { AccountTab, MustChangePassword } from './Account';
 import { BirthdayGreeting } from './Birthdays';
 import { ClinicTab } from './ClinicTab';
@@ -51,6 +52,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [more, setMore] = useState(false);
   const [pending, setPending] = useState(0);
+  const [noticeDone, setNoticeDone] = useState(false);
   const owner = me.role === 'OWNER';
   const refreshPending = () => api<{ pending: number }>('/api/v1/booking-requests/count')
     .then(c => setPending(c.pending)).catch(() => undefined);
@@ -109,6 +111,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
         </header>
 
         <main className="content">
+          <AccessNotice email={me.email} onReady={() => setNoticeDone(true)} />
           {!owner && <p className="notice small">Você está como colaborador: pode consultar, mas só a responsável altera.</p>}
           {tab === 'hoje' && <TodayTab owner={owner} profile={profile} pendingRequests={pending} />}
           {tab === 'agenda' && <AgendaTab owner={owner} action={sub} />}
@@ -121,7 +124,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
           {tab === 'conta' && <AccountTab me={me} />}
           {tab === 'clinica' && profile && <ClinicTab owner={owner} profile={profile} onSaved={saved} />}
         </main>
-        <BirthdayGreeting email={me.email} clinicName={name} />
+        {noticeDone && <BirthdayGreeting email={me.email} clinicName={name} />}
 
         <nav className="bottom-nav" aria-label="Seções do painel">
           {BOTTOM.map(t => (

@@ -3,7 +3,8 @@ import { signIn } from './api';
 import { navigate } from './router';
 import './landing.css';
 
-export function Login({ onLogged, signupEnabled }: { onLogged: () => void; signupEnabled: boolean }) {
+/** Login do painel da clínica; em /admin, o mesmo formulário serve à equipe da plataforma. */
+export function Login({ onLogged, signupEnabled, admin = false }: { onLogged: () => void; signupEnabled: boolean; admin?: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -27,8 +28,8 @@ export function Login({ onLogged, signupEnabled }: { onLogged: () => void; signu
     <main className="login">
       <form onInput={() => setError('')} className="card login-card" onSubmit={submit}>
         <img className="login-logo" src="/brand/physioevo-logo.svg" alt="PhysioEvo" height={36} />
-        <h1>Entrar no painel</h1>
-        <p className="muted">Agenda, pacientes, pacotes e o site da sua clínica, num lugar só.</p>
+        <h1>{admin ? 'Administração da plataforma' : 'Entrar no painel'}</h1>
+        <p className="muted">{admin ? 'Acesso restrito à equipe PhysioEvo.' : 'Agenda, pacientes, pacotes e o site da sua clínica, num lugar só.'}</p>
         <label>E-mail
           <input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} />
         </label>
@@ -38,10 +39,10 @@ export function Login({ onLogged, signupEnabled }: { onLogged: () => void; signu
         </label>
         {error && <p className="error" role="alert">{error}</p>}
         <button className="primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
-        <p className="small muted">Esqueceu a senha? Peça à responsável da clínica para gerar uma senha temporária
-          (Conta e equipe). Se você é a responsável, fale com o suporte.</p>
+        {!admin && <p className="small muted">Esqueceu a senha? Peça à responsável da clínica para gerar uma senha temporária
+          (Conta e equipe). Se você é a responsável, fale com o suporte.</p>}
         <div className="login-links small">
-          {signupEnabled && <a href="/cadastro" onClick={e => { e.preventDefault(); navigate('/cadastro'); }}>Criar conta grátis</a>}
+          {signupEnabled && !admin && <a href="/cadastro" onClick={e => { e.preventDefault(); navigate('/cadastro'); }}>Criar conta grátis</a>}
           <span><a href="/termos">Termos</a> · <a href="/privacidade">Privacidade</a></span>
         </div>
       </form>

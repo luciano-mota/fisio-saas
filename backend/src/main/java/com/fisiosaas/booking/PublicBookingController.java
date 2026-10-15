@@ -228,7 +228,8 @@ public class PublicBookingController {
 
     private UUID requireBookingClinic(String slug) {
         UUID clinicId = publicClinics.requireEnabled(slug);
-        if (!booking.settings(clinicId).enabled()) throw new NoSuchElementException();
+        // Agendamento desligado, ou clínica suspensa/vencida (o site fica no ar só como vitrine).
+        if (!booking.settings(clinicId).enabled() || !publicClinics.operational(clinicId)) throw new NoSuchElementException();
         return clinicId;
     }
 

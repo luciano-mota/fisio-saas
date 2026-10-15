@@ -85,6 +85,16 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
 - **Cadastro de clínica pelo site** (`/cadastro`, período de testes), com aceite dos **termos de uso** (`/termos`) e da
   **política de privacidade** (`/privacidade`, LGPD) — versão aceita fica registrada. Campo anti-robô e limite por IP;
   desligável com `SIGNUP_ENABLED=false`. Página do produto em `/` para quem não entrou.
+- **Aniversariantes**: aviso animado ao abrir o painel (uma vez por dia) e sub-aba em Pacientes (hoje, 7 dias, mês),
+  com ativos e desativados; mensagem de parabéns com emojis e modelo editável (`{nome}`, `{idade}`, `{clinica}`),
+  enviada pelo WhatsApp (link `wa.me`).
+- **Administração da plataforma** (`/admin`, só a equipe PhysioEvo — `PLATFORM_ADMIN_EMAIL`/`PLATFORM_ADMIN_PASSWORD`):
+  lista as clínicas assinantes com a situação (em teste, assinante, acesso gratuito, vencida, suspensa, bloqueada) e
+  permite dar teste grátis ou acesso gratuito por N dias (ou sem prazo), ativar, **suspender** (só consulta; o site
+  fica como vitrine, sem agendamento) e **bloquear** (sem login e sem site). Toda ação exige motivo e fica no
+  histórico. **Nada é apagado**: vencida, suspensa ou bloqueada, a clínica mantém todos os dados. Não mostra dados
+  de pacientes (só a quantidade). Cadastro pelo site começa com **30 dias de teste** (`TRIAL_DAYS`).
+- **Aviso de vencimento** no painel da clínica: faixa a partir de 7 dias antes e janela nos dias 7, 3, 1 e no dia.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do
   site são apagadas de verdade ao remover (não são histórico e podem mostrar pessoas — LGPD).
 
@@ -180,6 +190,9 @@ BOOTSTRAP_CLINIC_NAME=...
 BOOTSTRAP_CLINIC_SLUG=...
 PLATFORM_CONTACT_EMAIL=contato@seudominio.com.br   # aparece nos termos e na política de privacidade
 SIGNUP_ENABLED=true                                # false = só a clínica inicial (sem cadastro pelo site)
+TRIAL_DAYS=30                                      # dias de teste grátis de quem se cadastra pelo site
+PLATFORM_ADMIN_EMAIL=equipe@seudominio.com.br      # administração da plataforma em /admin (criado se não existir)
+PLATFORM_ADMIN_PASSWORD=...                        # 12+ caracteres; só vale na criação (não troca senha existente)
 ```
 
 ```bash

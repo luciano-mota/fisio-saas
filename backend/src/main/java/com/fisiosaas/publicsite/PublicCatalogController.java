@@ -11,6 +11,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
+import com.fisiosaas.platform.ClinicAccess;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -70,14 +71,16 @@ public class PublicCatalogController {
         record Row(UUID id, PublicClinic base, Content content) {}
         Row clinic = jdbc.query("""
                 SELECT c.*, (SELECT (extract(epoch FROM l.updated_at) * 1000)::bigint FROM clinic_logos l
-                              WHERE l.clinic_id = c.id) AS logo_version
-                  FROM clinics c WHERE c.slug = ? AND c.public_page_enabled""",
+                              WHERE l.clinic_id = c.id) AS logo_version,
+                       (""" + ClinicAccess.OPERATIONAL_SQL + """
+                       ) AS operational
+                  FROM clinics c WHERE c.slug = ? AND c.public_page_enabled AND c.status <> 'BLOCKED'""",
             (rs, n) -> new Row(rs.getObject("id", UUID.class), new PublicClinic(
                 rs.getString("slug"), rs.getString("display_name"), rs.getString("professional_name"),
                 rs.getString("crefito"), rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
                 new Theme(rs.getString("color_primary"), rs.getString("color_secondary"),
                     rs.getString("color_accent")), (Long) rs.getObject("logo_version"), null, List.of(),
-                    new Booking(rs.getBoolean("booking_enabled"), List.of(), rs.getString("pix_key") != null,
+                    new Booking(rs.getBoolean("booking_enabled") && rs.getBoolean("operational"), List.of(), rs.getString("pix_key") != null,
                         rs.getInt("booking_max_days"))),
                 new Content(rs.getString("site_style"), rs.getString("site_fonts"), rs.getString("site_template"),
                     rs.getString("site_mood"), rs.getString("site_headline"),
