@@ -9,7 +9,7 @@ export type ClinicProfile = {
   noShowConsumesSession: boolean; logoVersion: number | null;
   siteStyle: string; siteFonts: string; siteHeadline: string | null;
   siteEducation: string | null; siteHours: string | null; siteServiceArea: string | null;
-  siteShowMap: boolean; siteShowTestimonials: boolean;
+  siteShowMap: boolean; siteShowTestimonials: boolean; siteTemplate: string; siteMood: string;
 };
 
 export type SitePhoto = { id: string; kind: 'COVER' | 'GALLERY'; caption: string | null; width: number; height: number; position: number };
@@ -59,7 +59,7 @@ export type PublicClinic = {
   slug: string; displayName: string; professionalName: string | null; crefito: string | null;
   whatsapp: string | null; address: string | null; about: string | null; theme: Theme; logoVersion: number | null;
   site: {
-    style: string; fonts: string; headline: string | null; education: string | null; hours: string | null;
+    style: string; fonts: string; template: string; mood: string; headline: string | null; education: string | null; hours: string | null;
     serviceArea: string | null; showMap: boolean; cover: PublicPhoto | null; gallery: PublicPhoto[];
     testimonials: { authorName: string; text: string }[]; faqs: { question: string; answer: string }[];
   };

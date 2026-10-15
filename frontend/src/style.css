@@ -483,3 +483,46 @@ h4 { margin: 8px 0 0; font-size: .98rem; }
 .palette:hover, .choice:hover { background: #fff; border-color: #94a3b8; }
 .choice.on:hover { background: color-mix(in srgb, var(--color-primary) 6%, #fff); border-color: var(--color-primary); }
 .palette.chosen:hover { border-color: var(--text); }
+
+/* Envio de foto: prévia local enquanto envia e erro em destaque */
+.photo-frame { position: relative; }
+.photo-frame.sending img { opacity: .55; filter: blur(1px); }
+.sending-label {
+  position: absolute; inset: auto 8px 8px; padding: 4px 8px; border-radius: 8px; background: rgba(15, 23, 42, .75);
+  color: #fff; font-size: .78rem; font-weight: 700; text-align: center;
+}
+.error-box { margin: 4px 0; padding: 10px 14px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: var(--danger); font-weight: 600; }
+
+/* Aba Site: miniaturas dos modelos e dos climas (cores do clima escolhido, vindas de siteTheme) */
+.section-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-row h3 { margin: 0; }
+.choice-grid.templates { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.thumb {
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 6px 1fr; gap: 5px; width: 100%; aspect-ratio: 4 / 3;
+  padding: 6px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); overflow: hidden; margin-bottom: 6px;
+}
+.thumb i, .thumb b, .thumb em { display: block; font-style: normal; }
+.t-nav { grid-column: 1 / -1; border-radius: 3px; background: var(--line); }
+.t-text { display: grid; align-content: center; gap: 4px; }
+.t-text b { height: 6px; border-radius: 3px; background: var(--ink); opacity: .85; }
+.t-text b + b { width: 70%; }
+.t-text em { width: 45%; height: 8px; border-radius: 4px; background: var(--cta); }
+.t-text.light b { background: var(--on-band); }
+.t-text.center { grid-column: 1 / -1; padding: 0 14%; }
+.t-text.center b + b { width: 80%; margin: 0 auto; }
+.t-photo { border-radius: 6px; background: var(--band) center / cover no-repeat; }
+.thumb-imersivo .t-photo.full { grid-column: 1 / -1; display: grid; align-items: end; padding: 6px; box-shadow: inset 0 -40px 30px -10px rgba(0, 0, 0, .55); }
+.thumb-editorial { grid-template-rows: 6px 18px 1fr 10px; }
+.thumb-editorial .t-photo.wide { grid-column: 1 / -1; }
+.t-rows { grid-column: 1 / -1; display: grid; gap: 3px; }
+.t-rows b { height: 4px; border-radius: 2px; background: var(--line); }
+.t-band { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; padding: 6px; border-radius: 8px; background: var(--band); }
+.t-photo.round { width: 40px; height: 40px; border-radius: 50%; border: 3px solid color-mix(in srgb, var(--on-band) 25%, transparent); }
+.mood-swatch {
+  display: flex; align-items: center; justify-content: space-between; height: 46px; padding: 0 12px; border-radius: 8px;
+  background: var(--paper); border: 1px solid var(--line); margin-bottom: 4px;
+}
+.mood-swatch b { color: var(--ink); font-size: 1.25rem; }
+.mood-swatch i { width: 30px; height: 14px; border-radius: 7px; background: var(--cta); }
+.fine-tune { border-top: 1px solid var(--border); padding-top: 12px; }
+.fine-tune summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }

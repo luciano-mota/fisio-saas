@@ -40,7 +40,7 @@ public class PublicCatalogController {
      * Aparência e conteúdo do site. Estilo/fontes "auto" = o site decide pelo tipo de serviço. Depoimentos só vêm
      * se a clínica ligou a seção.
      */
-    public record Site(String style, String fonts, String headline, String education, String hours,
+    public record Site(String style, String fonts, String template, String mood, String headline, String education, String hours,
                        String serviceArea, boolean showMap, Photo cover, List<Photo> gallery,
                        List<Testimonial> testimonials, List<Faq> faqs) {}
 
@@ -50,7 +50,7 @@ public class PublicCatalogController {
 
     public record Faq(String question, String answer) {}
 
-    private record Content(String style, String fonts, String headline, String education, String hours,
+    private record Content(String style, String fonts, String template, String mood, String headline, String education, String hours,
                            String serviceArea, boolean showMap, boolean showTestimonials) {}
 
     private final JdbcTemplate jdbc;
@@ -71,7 +71,8 @@ public class PublicCatalogController {
                 rs.getString("crefito"), rs.getString("whatsapp"), rs.getString("address"), rs.getString("about"),
                 new Theme(rs.getString("color_primary"), rs.getString("color_secondary"),
                     rs.getString("color_accent")), (Long) rs.getObject("logo_version"), null, List.of()),
-                new Content(rs.getString("site_style"), rs.getString("site_fonts"), rs.getString("site_headline"),
+                new Content(rs.getString("site_style"), rs.getString("site_fonts"), rs.getString("site_template"),
+                    rs.getString("site_mood"), rs.getString("site_headline"),
                     rs.getString("site_education"), rs.getString("site_hours"), rs.getString("site_service_area"),
                     rs.getBoolean("site_show_map"), rs.getBoolean("site_show_testimonials"))),
             slug.toLowerCase(Locale.ROOT)).stream().findFirst().orElseThrow(NoSuchElementException::new);
@@ -98,7 +99,7 @@ public class PublicCatalogController {
             ? TestimonialController.list(jdbc, clinicId).stream().map(t -> new Testimonial(t.authorName(), t.text())).toList()
             : List.of();
         List<Faq> faqs = FaqController.list(jdbc, clinicId).stream().map(f -> new Faq(f.question(), f.answer())).toList();
-        Site site = new Site(content.style(), content.fonts(), content.headline(), content.education(), content.hours(),
+        Site site = new Site(content.style(), content.fonts(), content.template(), content.mood(), content.headline(), content.education(), content.hours(),
             content.serviceArea(), content.showMap(), cover, gallery, testimonials, faqs);
 
         PublicClinic base = clinic.base();

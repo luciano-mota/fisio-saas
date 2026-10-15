@@ -11,6 +11,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @RestController
 public class PhotoController {
+    private static final Logger log = LoggerFactory.getLogger(PhotoController.class);
     static final int MAX_BYTES = 800 * 1024;
     static final int MAX_SIDE = 2400;
     static final int MIN_SIDE = 320;
@@ -76,13 +79,21 @@ public class PhotoController {
                             @RequestParam("kind") String kind,
                             @RequestParam(value = "caption", required = false) String caption) throws IOException {
         UUID clinicId = current.requireOwner(auth).clinicId();
-        if (!"COVER".equals(kind) && !"GALLERY".equals(kind)) throw new IllegalArgumentException("Tipo de foto inválido");
-        if (caption != null && caption.length() > 140) throw new IllegalArgumentException("Legenda com até 140 caracteres");
-        if (file.isEmpty()) throw new IllegalArgumentException("Escolha uma foto");
-        if (file.getSize() > MAX_BYTES) throw new IllegalArgumentException("A foto precisa ter até 800 KB");
-        byte[] data = file.getBytes();
-        if (!Images.isJpeg(data)) throw new IllegalArgumentException("Envie a foto em JPG");
-        int[] size = Images.dimensions(data, MIN_SIDE, MAX_SIDE, "foto");
+        int[] size;
+        byte[] data;
+        try {
+            if (!"COVER".equals(kind) && !"GALLERY".equals(kind)) throw new IllegalArgumentException("Tipo de foto inválido");
+            if (caption != null && caption.length() > 140) throw new IllegalArgumentException("Legenda com até 140 caracteres");
+            if (file.isEmpty()) throw new IllegalArgumentException("Escolha uma foto");
+            if (file.getSize() > MAX_BYTES) throw new IllegalArgumentException("A foto precisa ter até 800 KB");
+            data = file.getBytes();
+            if (!Images.isJpeg(data)) throw new IllegalArgumentException("Envie a foto em JPG");
+            size = Images.dimensions(data, MIN_SIDE, MAX_SIDE, "foto");
+        } catch (IllegalArgumentException rejected) {
+            // Sem dados pessoais no log: só a clínica, o tamanho e o motivo, para diagnosticar envios que falham.
+            log.info("Foto recusada: clinica={} tipo={} bytes={} motivo={}", clinicId, kind, file.getSize(), rejected.getMessage());
+            throw rejected;
+        }
         byte[] clean = Images.stripJpegMetadata(data);
 
         // Trava a clínica: dois envios ao mesmo tempo não passam do limite da galeria nem criam duas capas.

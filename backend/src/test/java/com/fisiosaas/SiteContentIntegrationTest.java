@@ -288,4 +288,35 @@ class SiteContentIntegrationTest extends IntegrationTest {
             .andExpect(jsonPath("$.site.education").doesNotExist())
             .andExpect(jsonPath("$.site.showMap").value(true));
     }
+
+    // ---------- Modelo e clima ----------
+
+    @Test
+    void modeloEClimaSaoListaFechadaVaoParaOSiteENuloMantem() throws Exception {
+        mvc.perform(get("/api/v1/public/clinics/fisio-ana"))
+            .andExpect(jsonPath("$.site.template").value("auto"))
+            .andExpect(jsonPath("$.site.mood").value("suave"));
+        send(put("/api/v1/clinic"), OWNER_A,
+            "{\"displayName\":\"Fisio Ana\",\"publicPageEnabled\":true,\"siteTemplate\":\"imersivo\",\"siteMood\":\"escuro\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.siteTemplate").value("imersivo"));
+        mvc.perform(get("/api/v1/public/clinics/fisio-ana"))
+            .andExpect(jsonPath("$.site.template").value("imersivo"))
+            .andExpect(jsonPath("$.site.mood").value("escuro"));
+
+        for (String body : new String[] {
+            "{\"displayName\":\"Fisio Ana\",\"siteTemplate\":\"<div>\"}",
+            "{\"displayName\":\"Fisio Ana\",\"siteMood\":\"neon\"}"}) {
+            send(put("/api/v1/clinic"), OWNER_A, body).andExpect(status().isBadRequest());
+        }
+        // Sem os campos mantém; STAFF não altera; B não é afetada.
+        send(put("/api/v1/clinic"), OWNER_A, "{\"displayName\":\"Fisio Ana\",\"publicPageEnabled\":true}")
+            .andExpect(jsonPath("$.siteTemplate").value("imersivo"))
+            .andExpect(jsonPath("$.siteMood").value("escuro"));
+        send(put("/api/v1/clinic"), STAFF_A, "{\"displayName\":\"Fisio Ana\",\"siteTemplate\":\"classico\"}")
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/public/clinics/fisio-bia"))
+            .andExpect(jsonPath("$.site.template").value("auto"))
+            .andExpect(jsonPath("$.site.mood").value("suave"));
+    }
 }
