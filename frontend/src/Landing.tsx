@@ -41,7 +41,7 @@ const FAQ: { q: string; a: string }[] = [
   { q: 'O Pix tem taxa?', a: 'Não. O código Pix é gerado com a sua chave e o dinheiro vai direto para a sua conta. O PhysioEvo não passa no meio do pagamento.' },
   { q: 'Guarda prontuário ou evolução clínica?', a: 'Ainda não. Por enquanto o sistema guarda só dados administrativos (agenda, pacotes, pagamentos). Prontuário só depois de cumprir as regras do COFFITO e da LGPD.' },
   { q: 'Meus dados ficam seguros?', a: 'Cada clínica só enxerga os próprios dados, a conexão é criptografada e a senha nunca fica guardada em texto. Você pode pedir uma cópia ou a exclusão dos dados quando quiser.' },
-  { q: 'Quanto custa?', a: 'O teste é grátis por 30 dias, sem cartão. O valor do plano será informado com antecedência antes de qualquer cobrança — e você pode sair quando quiser.' }
+  { q: 'Quanto custa?', a: 'Você pode fazer um teste grátis, sem cartão de crédito. O valor do plano é informado com antecedência, antes de qualquer cobrança — e você pode sair quando quiser.' }
 ];
 
 /** Ilustração própria: fisioterapeuta e paciente em alongamento, em casa (formas da marca). */
@@ -145,7 +145,7 @@ export function Landing({ signupEnabled }: { signupEnabled: boolean }) {
   const { contactEmail } = usePlatform();
   const [menu, setMenu] = useState(false);
   const cta = signupEnabled
-    ? <Link to="/cadastro" className="pe-btn pe-btn-primary">Começar grátis</Link>
+    ? <Link to="/cadastro" className="pe-btn pe-btn-primary">Faça um teste grátis</Link>
     : <Link to="/login" className="pe-btn pe-btn-primary">Entrar</Link>;
   const anchors = [['#site-gratis', 'Site grátis'], ['#recursos', 'Recursos'], ['#como-funciona', 'Como funciona'], ['#planos', 'Planos'], ['#duvidas', 'Dúvidas']];
 
@@ -175,7 +175,7 @@ export function Landing({ signupEnabled }: { signupEnabled: boolean }) {
                 configurável, com agendamento online.</b></p>
               <div className="pe-cta">{cta}<a href="#como-funciona" className="pe-btn pe-btn-ghost">Ver como funciona</a></div>
               <ul className="pe-trust">
-                <li><Icon name="check" size={16} /> 30 dias grátis</li>
+                <li><Icon name="check" size={16} /> Teste grátis</li>
                 <li><Icon name="check" size={16} /> Site incluso</li>
                 <li><Icon name="check" size={16} /> Sem cartão de crédito</li>
                 <li><Icon name="check" size={16} /> Sem instalar nada</li>
@@ -291,7 +291,7 @@ export function Landing({ signupEnabled }: { signupEnabled: boolean }) {
               <div className="pe-plan featured">
                 <span className="pe-badge">Lançamento</span>
                 <h3>Profissional</h3>
-                <p className="pe-price"><strong>30 dias grátis</strong><small>sem cartão de crédito</small></p>
+                <p className="pe-price"><strong>Teste grátis</strong><small>sem cartão de crédito</small></p>
                 <p className="pe-plan-gift"><Icon name="gift" size={18} /> Site profissional grátis incluso</p>
                 <ul>{['Agenda, pacotes e pacientes', 'Site configurável com agendamento online', 'Pix sem taxa e maquininha',
                   'Quem deve, a receber e recibos', 'Acesso para a equipe'].map(i => <li key={i}><Icon name="check" size={16} />{i}</li>)}</ul>

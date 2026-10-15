@@ -66,7 +66,7 @@ public class SignupController {
     public SignupController(JdbcTemplate jdbc, PasswordEncoder passwords, SignupThrottle throttle,
                             @Value("${fisio.signup-enabled:true}") boolean enabled,
                             @Value("${fisio.contact-email:}") String contactEmail,
-                            @Value("${fisio.trial-days:30}") int trialDays) {
+                            @Value("${fisio.trial-days:0}") int trialDays) {
         this.jdbc = jdbc;
         this.passwords = passwords;
         this.throttle = throttle;
@@ -112,7 +112,8 @@ public class SignupController {
                                 status, access_until, status_changed_at)
             VALUES (?, ?, ?, ?, ?, now(), ?, 'TRIAL', ?, now())""",
             clinic, slug, body.clinicName().trim(), blankToNull(body.professionalName()), whatsapp, TERMS_VERSION,
-            LocalDate.now(ZoneId.of(DEFAULT_TIMEZONE)).plusDays(trialDays));
+            // Sem prazo por padrão: a equipe da plataforma decide quantos dias dar em /admin.
+            trialDays > 0 ? LocalDate.now(ZoneId.of(DEFAULT_TIMEZONE)).plusDays(trialDays) : null);
         jdbc.update("""
             INSERT INTO users(id, clinic_id, email, password_hash, full_name, role, password_changed_at)
             VALUES (?, ?, ?, ?, ?, 'OWNER', now())""",
