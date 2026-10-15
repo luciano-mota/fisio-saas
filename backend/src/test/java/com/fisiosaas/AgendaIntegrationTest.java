@@ -26,9 +26,9 @@ class AgendaIntegrationTest extends IntegrationTest {
 
     @BeforeEach
     void cadastros() throws Exception {
-        mariaA = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Maria Souza\",\"whatsapp\":\"98999991234\"}");
+        mariaA = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Maria Souza\",\"whatsapp\":\"98999991234\"}");
         pilatesA = create("/api/v1/services", OWNER_A, "{\"name\":\"Pilates\",\"durationMinutes\":50}");
-        joaoB = create("/api/v1/patients", OWNER_B, "{\"fullName\":\"João\"}");
+        joaoB = create("/api/v1/patients", OWNER_B, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"João\"}");
         rpgB = create("/api/v1/services", OWNER_B, "{\"name\":\"RPG\"}");
     }
 
@@ -76,7 +76,7 @@ class AgendaIntegrationTest extends IntegrationTest {
     @Test
     void naoDeixaDuasMarcacoesNoMesmoHorarioDaMesmaClinica() throws Exception {
         String primeira = sessao(OWNER_A, mariaA, pilatesA, FUTURO + "T08:00");
-        String ana = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Ana\"}");
+        String ana = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Ana\"}");
 
         postJson("/api/v1/appointments", OWNER_A, """
             {"patientId":"%s","serviceId":"%s","startsAt":"%sT08:30"}""".formatted(ana, pilatesA, FUTURO))
@@ -157,7 +157,7 @@ class AgendaIntegrationTest extends IntegrationTest {
             .andExpect(jsonPath("$.rescheduleCount").value(2));
 
         // Remarcar para horário ocupado é recusado.
-        String ana = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Ana\"}");
+        String ana = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Ana\"}");
         sessao(OWNER_A, ana, pilatesA, "2030-01-10T10:00");
         mvc.perform(put("/api/v1/appointments/" + id).with(user(OWNER_A)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"startsAt\":\"2030-01-10T10:20\"}"))

@@ -55,3 +55,26 @@ export function formatDocument(doc: string | null | undefined): string {
   if (d.length === 14) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
   return doc ?? '';
 }
+
+/** Máscara do CPF enquanto digita: "1234567" → "123.456.7". */
+export function maskCpf(text: string): string {
+  const d = onlyDigits(text).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+/** Máscara do telefone enquanto digita: "(98) 3222-1234" (fixo) ou "(98) 98111-2233" (celular). Ignora +55. */
+export function maskPhone(text: string): string {
+  let d = onlyDigits(text);
+  if (d.length > 11 && d.startsWith('55')) d = d.slice(2);
+  d = d.slice(0, 11);
+  if (d.length === 0) return '';
+  if (d.length <= 2) return `(${d}`;
+  const ddd = `(${d.slice(0, 2)}) `;
+  const rest = d.slice(2);
+  if (rest.length <= 4) return ddd + rest;
+  const split = d.length === 11 ? 5 : 4;
+  return `${ddd}${rest.slice(0, split)}-${rest.slice(split)}`;
+}

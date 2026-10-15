@@ -22,7 +22,7 @@ class PatientPackageIntegrationTest extends IntegrationTest {
 
     @BeforeEach
     void cadastros() throws Exception {
-        maria = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Maria Souza\",\"whatsapp\":\"98999991234\"}");
+        maria = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Maria Souza\",\"whatsapp\":\"98999991234\"}");
         pilates = create("/api/v1/services", OWNER_A, "{\"name\":\"Pilates\",\"durationMinutes\":50}");
         dezSessoes = create("/api/v1/packages", OWNER_A, """
             {"serviceId":"%s","name":"10 sessões","sessionCount":10,"price":800.00,"validityDays":90}""".formatted(pilates));
@@ -220,7 +220,7 @@ class PatientPackageIntegrationTest extends IntegrationTest {
     @Test
     void clinicaNaoVeNemVendeNemUsaPacoteDeOutraClinica() throws Exception {
         String pacoteA = vender(maria, dezSessoes);
-        String joaoB = create("/api/v1/patients", OWNER_B, "{\"fullName\":\"João\"}");
+        String joaoB = create("/api/v1/patients", OWNER_B, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"João\"}");
         String rpgB = create("/api/v1/services", OWNER_B, "{\"name\":\"RPG\"}");
         String catalogoB = create("/api/v1/packages", OWNER_B, """
             {"serviceId":"%s","name":"5 sessões","sessionCount":5}""".formatted(rpgB));
@@ -245,7 +245,7 @@ class PatientPackageIntegrationTest extends IntegrationTest {
 
     @Test
     void pacoteDeOutroPacienteNaoServe() throws Exception {
-        String ana = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Ana\"}");
+        String ana = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Ana\"}");
         String pacoteMaria = vender(maria, dezSessoes);
         String sessaoAna = sessao(ana, "2030-01-07T08:00");
         assertThat(pacoteDaSessao(sessaoAna)).isNull();

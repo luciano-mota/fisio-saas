@@ -19,8 +19,8 @@ class SeriesIntegrationTest extends IntegrationTest {
 
     @BeforeEach
     void cadastros() throws Exception {
-        mariaA = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Maria Souza\"}");
-        anaA = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Ana\"}");
+        mariaA = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Maria Souza\"}");
+        anaA = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Ana\"}");
         pilatesA = create("/api/v1/services", OWNER_A, "{\"name\":\"Pilates\",\"durationMinutes\":50}");
     }
 

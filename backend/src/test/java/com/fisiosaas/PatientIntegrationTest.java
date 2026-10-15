@@ -20,8 +20,8 @@ class PatientIntegrationTest extends IntegrationTest {
         String joao = create("/api/v1/patients", OWNER_A, """
             {"fullName":"  João   da Silva ","cpf":"%s","whatsapp":"(98) 99999-1234",
              "birthDate":"1980-05-17","adminNotes":"Prefere manhã"}""".formatted(CPF_VALIDO));
-        create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Joana Prado\"}");
-        create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Maria Souza\"}");
+        create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Joana Prado\"}");
+        create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Maria Souza\"}");
 
         mvc.perform(get("/api/v1/patients/" + joao).with(user(OWNER_A)))
             .andExpect(status().isOk())
@@ -47,6 +47,23 @@ class PatientIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void cpfEhObrigatorioAoCadastrarEAoEditarPacienteAntigo() throws Exception {
+        mvc.perform(post("/api/v1/patients").with(user(OWNER_A)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Ana\",\"whatsapp\":\"98999991234\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("Informe o CPF do paciente"));
+        // Cadastro antigo sem CPF continua aparecendo, mas para editar precisa informar.
+        String antiga = legacyPatient(clinicA, "Ana Antiga", "98999991234");
+        mvc.perform(get("/api/v1/patients/" + antiga).with(user(OWNER_A))).andExpect(jsonPath("$.cpf").doesNotExist());
+        mvc.perform(put("/api/v1/patients/" + antiga).with(user(OWNER_A)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Ana Antiga\"}"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/v1/patients/" + antiga).with(user(OWNER_A)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Ana Antiga\",\"cpf\":\"%s\"}".formatted(CPF_VALIDO)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.cpf").value("52998224725"));
+    }
+
+    @Test
     void cpfInvalidoOuRepetidoNaMesmaClinicaEhRecusado() throws Exception {
         mvc.perform(post("/api/v1/patients").with(user(OWNER_A)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Ana\",\"cpf\":\"123.456.789-00\"}"))
@@ -57,16 +74,16 @@ class PatientIntegrationTest extends IntegrationTest {
             .andExpect(status().isBadRequest());
 
         create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Ana\",\"cpf\":\"%s\"}".formatted(CPF_VALIDO));
-        String outra = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Bia\"}");
+        String outra = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Bia\"}");
         mvc.perform(post("/api/v1/patients").with(user(OWNER_A)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"fullName\":\"Ana 2\",\"cpf\":\"52998224725\"}"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("Já existe paciente com este CPF"));
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error").value("Já existe paciente com este CPF: Ana"));
         mvc.perform(put("/api/v1/patients/" + outra).with(user(OWNER_A)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"fullName\":\"Bia\",\"cpf\":\"%s\"}".formatted(CPF_VALIDO)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isConflict());
 
         // Mesma pessoa pode ser paciente de outra clínica.
         create("/api/v1/patients", OWNER_B, "{\"fullName\":\"Ana\",\"cpf\":\"%s\"}".formatted(CPF_VALIDO));
@@ -109,7 +126,7 @@ class PatientIntegrationTest extends IntegrationTest {
 
     @Test
     void colaboradoraConsultaMasNaoAltera() throws Exception {
-        String paciente = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Maria\"}");
+        String paciente = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Maria\"}");
         mvc.perform(get("/api/v1/patients").with(user(STAFF_A)))
             .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(1)));
         mvc.perform(get("/api/v1/patients/" + paciente).with(user(STAFF_A))).andExpect(status().isOk());
@@ -125,7 +142,8 @@ class PatientIntegrationTest extends IntegrationTest {
 
     @Test
     void desativarEscondeDaListaSemApagarEPodeReativar() throws Exception {
-        String paciente = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Maria\"}");
+        String cpf = cpf();
+        String paciente = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf + "\",\"fullName\":\"Maria\"}");
         mvc.perform(delete("/api/v1/patients/" + paciente).with(user(OWNER_A)).with(csrf()))
             .andExpect(status().isNoContent());
 
@@ -136,7 +154,7 @@ class PatientIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM patients", Integer.class)).isEqualTo(1);
 
         mvc.perform(put("/api/v1/patients/" + paciente).with(user(OWNER_A)).with(csrf())
-                .contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Maria\",\"active\":true}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Maria\",\"cpf\":\"" + cpf + "\",\"active\":true}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.active").value(true));
     }

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -62,6 +63,31 @@ public abstract class IntegrationTest {
         jdbc.update("INSERT INTO clinics(id, slug, display_name, public_page_enabled) VALUES (?, ?, ?, ?)",
             id, slug, name, publicPage);
         return id;
+    }
+
+    private static final AtomicInteger CPF_SEQ = new AtomicInteger(300_000_000);
+
+    /** CPF válido e único para os testes (o cadastro de paciente exige CPF). */
+    protected static String cpf() {
+        String base = String.valueOf(CPF_SEQ.incrementAndGet());
+        int d1 = check(base, 10);
+        int d2 = check(base + d1, 11);
+        return base + d1 + d2;
+    }
+
+    private static int check(String digits, int weight) {
+        int sum = 0;
+        for (int i = 0; i < digits.length(); i++) sum += (digits.charAt(i) - '0') * (weight - i);
+        int rest = (sum * 10) % 11;
+        return rest == 10 ? 0 : rest;
+    }
+
+    /** Paciente antigo, cadastrado antes do CPF ser obrigatório (direto no banco). */
+    protected String legacyPatient(UUID clinic, String name, String whatsapp) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO patients(id, clinic_id, full_name, search_name, whatsapp, active) VALUES (?, ?, ?, ?, ?, TRUE)",
+            id, clinic, name, com.fisiosaas.patient.PatientController.searchKey(name), whatsapp);
+        return id.toString();
     }
 
     protected void insertUser(UUID clinic, String email, String role) {

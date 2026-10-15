@@ -34,7 +34,7 @@ class FinanceIntegrationTest extends IntegrationTest {
         today = LocalDate.now(ZoneId.of("America/Fortaleza"));
         pilates = create("/api/v1/services", OWNER_A, "{\"name\":\"Pilates\",\"durationMinutes\":50,\"price\":90}");
         rpg = create("/api/v1/services", OWNER_A, "{\"name\":\"RPG\",\"durationMinutes\":50,\"price\":120}");
-        maria = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Maria Souza\",\"whatsapp\":\"98988881111\"}");
+        maria = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Maria Souza\",\"whatsapp\":\"98988881111\"}");
         String catalog = create("/api/v1/packages", OWNER_A,
             "{\"serviceId\":\"" + pilates + "\",\"name\":\"10 sessões\",\"sessionCount\":10,\"price\":800}");
         sold = create("/api/v1/patients/" + maria + "/packages", OWNER_A,
@@ -148,7 +148,7 @@ class FinanceIntegrationTest extends IntegrationTest {
     @Test
     void cadaClinicaSoVeEMexeNoProprioFinanceiro() throws Exception {
         String pix = create("/api/v1/payments", OWNER_A, "{\"patientId\":\"%s\",\"method\":\"PIX\",\"amount\":50}".formatted(maria));
-        String paulo = create("/api/v1/patients", OWNER_B, "{\"fullName\":\"Paulo\"}");
+        String paulo = create("/api/v1/patients", OWNER_B, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Paulo\"}");
         String machineB = create("/api/v1/card-machines", OWNER_B, "{\"name\":\"B\",\"debitFee\":2,\"creditFee\":3}");
 
         mvc.perform(get("/api/v1/finance/debtors").with(user(OWNER_B))).andExpect(jsonPath("$", hasSize(0)));
@@ -165,7 +165,7 @@ class FinanceIntegrationTest extends IntegrationTest {
             {"patientId":"%s","method":"DEBITO","machineId":"%s","amount":10}""".formatted(maria, machineB)).andExpect(status().isNotFound());
         send(post("/api/v1/payments"), OWNER_B, """
             {"patientId":"%s","patientPackageId":"%s","method":"PIX","amount":10}""".formatted(paulo, sold)).andExpect(status().isBadRequest());
-        String ana = create("/api/v1/patients", OWNER_A, "{\"fullName\":\"Ana\"}");
+        String ana = create("/api/v1/patients", OWNER_A, "{\"cpf\":\"" + cpf() + "\",\"fullName\":\"Ana\"}");
         send(post("/api/v1/payments"), OWNER_A, """
             {"patientId":"%s","patientPackageId":"%s","method":"PIX","amount":10}""".formatted(ana, sold))
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("Pacote não é deste paciente"));

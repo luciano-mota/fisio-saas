@@ -410,7 +410,7 @@ function MachineSheet({ form, setForm, onSaved }: { form: MachineForm; setForm: 
 
   return (
     <Sheet title={form.id ? 'Editar maquininha' : 'Nova maquininha'} onClose={() => setForm(null)}>
-      <form className="form" onSubmit={submit}>
+      <form onInput={() => setError('')} className="form" onSubmit={submit}>
         <label>Nome<input required maxLength={60} placeholder="Ex.: Stone" value={form.name} onChange={e => set('name', e.target.value)} /></label>
         <div className="row">
           <label>Débito (%)<input inputMode="decimal" required placeholder="1,99" value={form.debitFee} onChange={e => set('debitFee', e.target.value)} /></label>

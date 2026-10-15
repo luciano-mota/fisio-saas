@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { api, signIn } from './api';
+import { maskPhone } from './format';
 import { PRODUCT_NAME } from './product';
 import { navigate } from './router';
 import { Icon } from './ui';
@@ -28,7 +29,7 @@ export function Signup({ onLogged }: { onLogged: () => void }) {
 
   return (
     <main className="login">
-      <form className="card login-card wide" onSubmit={submit}>
+      <form onInput={() => setError('')} className="card login-card wide" onSubmit={submit}>
         <span className="brand-mark" aria-hidden="true"><Icon name="calendar" size={22} /></span>
         <h1>Criar conta grátis</h1>
         <p className="muted">Comece a usar o {PRODUCT_NAME} agora. Grátis durante o período de testes.</p>
@@ -38,7 +39,7 @@ export function Signup({ onLogged }: { onLogged: () => void }) {
           <label>Seu nome<input maxLength={120} autoComplete="name" value={form.professionalName}
                                 onChange={e => set({ professionalName: e.target.value })} /></label>
           <label>WhatsApp<input inputMode="tel" maxLength={20} placeholder="(98) 99999-0000" value={form.whatsapp}
-                                onChange={e => set({ whatsapp: e.target.value })} /></label>
+                                onChange={e => set({ whatsapp: maskPhone(e.target.value) })} /></label>
         </div>
         <label>E-mail<input type="email" required autoComplete="username" value={form.email} onChange={e => set({ email: e.target.value })} /></label>
         <label>Senha<input type="password" required minLength={12} autoComplete="new-password" value={form.password}
