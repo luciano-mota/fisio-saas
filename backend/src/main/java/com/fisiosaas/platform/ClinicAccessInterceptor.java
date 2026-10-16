@@ -17,14 +17,14 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * Aplica a situação da assinatura no painel: bloqueada não acessa nada; suspensa ou vencida só consulta
- * (trocar a própria senha, marcar aviso como lido e sair continuam liberados). Os dados ficam guardados.
+ * (trocar a própria senha, marcar aviso como lido, pagar a mensalidade e sair continuam liberados). Os dados ficam guardados.
  */
 @Component
 public class ClinicAccessInterceptor implements HandlerInterceptor {
     private static final Set<String> READ = Set.of("GET", "HEAD", "OPTIONS");
     private static final Set<String> ALWAYS_ALLOWED = Set.of("/api/v1/account/password");
-    /** Marcar aviso da plataforma como lido também vale com o painel só para consulta. */
-    private static final java.util.regex.Pattern NOTICE_READ = java.util.regex.Pattern.compile("^/api/v1/notices/[^/]+/read$");
+    /** Marcar aviso como lido e informar pagamento da mensalidade também valem com o painel só para consulta. */
+    private static final java.util.regex.Pattern NOTICE_READ = java.util.regex.Pattern.compile("^/api/v1/notices/[^/]+/read$|^/api/v1/subscription/charges/[^/]+/informed$");
 
     private final JdbcTemplate jdbc;
     private final ClinicAccess access;

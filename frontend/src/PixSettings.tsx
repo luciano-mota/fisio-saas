@@ -3,7 +3,7 @@ import { api, type PixKeyType, type PixSettings as Settings } from './api';
 import { maskCpf, maskPhone } from './format';
 import { useUi } from './ui';
 
-const TYPES: { id: PixKeyType; label: string; placeholder: string; inputMode?: 'numeric' | 'tel' | 'email' }[] = [
+export const TYPES: { id: PixKeyType; label: string; placeholder: string; inputMode?: 'numeric' | 'tel' | 'email' }[] = [
   { id: 'TELEFONE', label: 'Celular', placeholder: '(98) 99999-0000', inputMode: 'tel' },
   { id: 'CPF', label: 'CPF', placeholder: '000.000.000-00', inputMode: 'numeric' },
   { id: 'CNPJ', label: 'CNPJ', placeholder: '00.000.000/0000-00', inputMode: 'numeric' },

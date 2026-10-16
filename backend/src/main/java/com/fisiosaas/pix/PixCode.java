@@ -109,7 +109,7 @@ public final class PixCode {
     }
 
     /** Nome e cidade: sem acento, só letras, números e espaço, em maiúsculas, cortado no tamanho do padrão. */
-    static String ascii(String text, int max, String fallback) {
+    public static String ascii(String text, int max, String fallback) {
         String plain = Normalizer.normalize(text == null ? "" : text, Normalizer.Form.NFD)
             .replaceAll("\\p{M}", "").replaceAll("[^A-Za-z0-9 ]", " ").replaceAll("\\s+", " ").trim().toUpperCase();
         if (plain.isEmpty()) plain = fallback;

@@ -4,16 +4,18 @@ import { api, whatsappLink, type CardMachine, type Debtor, type FinanceSummary, 
 import { today } from './dates';
 import { addMonths, brl, chargeMessage, dateBr, methodLabel, monthLabel, monthRange, moneyInput, parseMoney } from './finance';
 import { PaymentSheet } from './PaymentSheet';
+import { SubscriptionSection } from './Subscription';
 import { navigate } from './router';
 import { Avatar, EmptyState, Icon, Menu, PageHeader, Sheet, useUi } from './ui';
 
-export type FinanceSection = 'resumo' | 'devendo' | 'pagamentos' | 'receber' | 'maquininhas';
+export type FinanceSection = 'resumo' | 'devendo' | 'pagamentos' | 'receber' | 'maquininhas' | 'assinatura';
 const SECTIONS: { id: FinanceSection; label: string }[] = [
   { id: 'resumo', label: 'Resumo' },
   { id: 'devendo', label: 'Quem deve' },
   { id: 'pagamentos', label: 'Pagamentos' },
   { id: 'receber', label: 'A receber' },
-  { id: 'maquininhas', label: 'Maquininhas' }
+  { id: 'maquininhas', label: 'Maquininhas' },
+  { id: 'assinatura', label: 'Assinatura' }
 ];
 
 /**
@@ -44,6 +46,7 @@ export function FinanceTab({ owner, section, clinicName }: { owner: boolean; sec
       {section === 'pagamentos' && <PaymentsSection key={version} owner={owner} />}
       {section === 'receber' && <ReceivablesSection key={version} owner={owner} />}
       {section === 'maquininhas' && <MachinesSection owner={owner} />}
+      {section === 'assinatura' && <SubscriptionSection owner={owner} />}
 
       {paying && (
         <PaymentSheet patientId={paying.patientId} onClose={() => setPaying(null)}
@@ -96,6 +99,15 @@ function SummarySection({ onSection }: { onSection: (s: FinanceSection) => void 
               <span>A cair da maquininha</span><strong>{brl(summary.toReceive)}</strong>
               <small>Ver depósitos <Icon name="right" size={14} /></small></button>
           </div>
+          {(summary.expenses > 0 || summary.expensesPending > 0) && (
+            <div className="money-stats two">
+              <button className="money-stat link" onClick={() => onSection('assinatura')}>
+                <span>Despesa: assinatura PhysioEvo</span><strong>{brl(summary.expenses)}</strong>
+                <small>Paga no mês <Icon name="right" size={14} /></small></button>
+              <div className="money-stat"><span>Resultado (líquido − despesas)</span><strong>{brl(summary.net - summary.expenses)}</strong>
+                {summary.expensesPending > 0 && <small>{brl(summary.expensesPending)} aguardando confirmação</small>}</div>
+            </div>
+          )}
           {summary.byMethod.length > 0 && (
             <div className="card">
               <h3>Por forma de pagamento</h3>
