@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { acceptedMessage, declinedMessage, formatHour, hoursSummary, isoWeekdayOf, nextDays, requestSentMessage,
-  whenLabel } from '../src/booking.ts';
+  requestsEmpty, whenLabel } from '../src/booking.ts';
 
 const h = (weekday: number, start: string, end: string) => ({ weekday, start, end });
 
@@ -29,4 +29,24 @@ test('datas e mensagens do agendamento', () => {
   assert.equal(acceptedMessage('Maria Souza', 'Pilates', '2026-10-16T10:00:00'),
     'Olá, Maria! Seu horário de Pilates está confirmado para sex, 16/10 às 10:00. Qualquer imprevisto, é só avisar por aqui.');
   assert.match(declinedMessage('Maria', 'Pilates', '2026-10-16T10:00:00', 'agenda cheia'), /\(agenda cheia\)\. Podemos combinar outro horário\?$/);
+});
+
+test('Solicitações vazia só pede para configurar quando falta algo', () => {
+  const ligado = requestsEmpty({ enabled: true, hours: [{ weekday: 1 }] }, false);
+  assert.equal(ligado.configure, false);
+  assert.equal(ligado.title, 'Nenhuma solicitação aguardando');
+  assert.match(ligado.text, /aparece aqui/);
+  assert.doesNotMatch(ligado.text, /Ative/);
+
+  const desligado = requestsEmpty({ enabled: false, hours: [{ weekday: 1 }] }, false);
+  assert.equal(desligado.configure, true);
+  assert.match(desligado.text, /Ative o agendamento/);
+
+  const semHorario = requestsEmpty({ enabled: true, hours: [] }, false);
+  assert.equal(semHorario.configure, true);
+  assert.match(semHorario.text, /falta cadastrar o horário/);
+
+  // Sem a configuração (carregando ou erro), não afirma que está desligado.
+  assert.equal(requestsEmpty(null, false).configure, false);
+  assert.equal(requestsEmpty(null, true).title, 'Nenhuma solicitação nos últimos 60 dias');
 });

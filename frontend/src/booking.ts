@@ -70,3 +70,23 @@ export function isoWeekdayOf(isoDate: string): number {
   const d = weekday(isoDate);
   return d === 0 ? 7 : d;
 }
+
+export type RequestsEmpty = { title: string; text: string; configure: boolean };
+
+/**
+ * Texto da tela de Solicitações sem pedidos. {@code booking}: configuração do agendamento pelo site (null enquanto
+ * não carregou ou se falhou). Só pede para configurar quando de fato falta algo: agendamento desligado ou sem horário.
+ */
+export function requestsEmpty(booking: { enabled: boolean; hours: unknown[] } | null, all: boolean): RequestsEmpty {
+  const title = all ? 'Nenhuma solicitação nos últimos 60 dias' : 'Nenhuma solicitação aguardando';
+  if (booking && !booking.enabled) {
+    return { title, configure: true,
+      text: 'Ative o agendamento pelo site em Clínica → Horário de atendimento para receber pedidos.' };
+  }
+  if (booking && booking.hours.length === 0) {
+    return { title, configure: true,
+      text: 'O agendamento pelo site está ligado, mas falta cadastrar o horário de atendimento para o site mostrar horários livres.' };
+  }
+  return { title, configure: false,
+    text: 'Quando alguém pedir um horário pelo seu site, o pedido aparece aqui na hora, com aviso no painel.' };
+}

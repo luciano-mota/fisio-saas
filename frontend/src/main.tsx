@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { api, isAdmin, type AdminMe, type Me } from './api';
+import { api, ApiError, isAdmin, type AdminMe, type Me } from './api';
 import { AdminPanel } from './Admin';
 import { Landing } from './Landing';
 import { PrivacyPage, TermsPage } from './Legal';
@@ -9,6 +9,7 @@ import { Panel } from './Panel';
 import { PublicPage } from './PublicPage';
 import { Signup } from './Signup';
 import { navigate, usePath } from './router';
+import { meFailure, wakeDelay } from './session';
 import './style.css';
 
 /** Páginas abertas a quem não entrou. Termos e privacidade abrem logado ou não. */
@@ -18,16 +19,28 @@ const LEGAL = ['/termos', '/privacidade'];
 function App() {
   const path = usePath();
   const [me, setMe] = useState<Me | AdminMe | null | undefined>(undefined);
+  const [waking, setWaking] = useState(false);
   const [signupEnabled, setSignupEnabled] = useState(false);
   const publicMatch = path.match(/^\/c\/([a-z0-9-]+)(\/agendar)?\/?$/);
   const publicSlug = publicMatch?.[1];
 
   useEffect(() => {
     if (publicSlug) return;
-    api<Me | AdminMe>('/api/v1/auth/me').then(setMe).catch(() => setMe(null));
+    // Servidor acordando (plano gratuito leva ~1-2 min) não é sessão encerrada: espera e tenta de novo.
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = (attempt: number) => {
+      api<Me | AdminMe>('/api/v1/auth/me').then(m => { if (!stopped) { setWaking(false); setMe(m); } }).catch(e => {
+        if (stopped) return;
+        if (meFailure(e instanceof ApiError ? e.status : undefined) === 'logged-out') { setWaking(false); setMe(null); return; }
+        setWaking(true);
+        timer = setTimeout(() => check(attempt + 1), wakeDelay(attempt));
+      });
+    };
+    check(0);
     const expired = () => setMe(null);
     window.addEventListener('session-expired', expired);
-    return () => window.removeEventListener('session-expired', expired);
+    return () => { stopped = true; clearTimeout(timer); window.removeEventListener('session-expired', expired); };
   }, [publicSlug]);
   useEffect(() => {
     fetch('/api/v1/public/platform').then(r => (r.ok ? r.json() : null))
@@ -46,6 +59,9 @@ function App() {
   if (publicSlug) return <PublicPage slug={publicSlug} booking={!!publicMatch?.[2]} />;
   if (path === '/termos') return <TermsPage />;
   if (path === '/privacidade') return <PrivacyPage />;
+  if (me === undefined && waking) {
+    return <div className="center muted" role="status">O servidor está acordando. Isso leva até 2 minutos; o painel abre sozinho.</div>;
+  }
   if (me === undefined) return <div className="center muted">Carregando…</div>;
   if (me === null && path === '/') return <Landing signupEnabled={signupEnabled} />;
   if (me === null && path === '/cadastro' && signupEnabled) return <Signup onLogged={logged} />;

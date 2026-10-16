@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, money, whatsappLink, type BookingRequest } from './api';
-import { acceptedMessage, declinedMessage, whenLabel } from './booking';
+import { api, money, whatsappLink, type BookingConfig, type BookingRequest } from './api';
+import { acceptedMessage, declinedMessage, requestsEmpty, whenLabel } from './booking';
 import { formatCpf, formatPhone } from './format';
 import { navigate } from './router';
 import { AlertSettings } from './RequestWatch';
@@ -20,11 +20,15 @@ export function RequestsTab({ owner, onChanged, version = 0 }: { owner: boolean;
   const [error, setError] = useState('');
   const [answered, setAnswered] = useState<{ item: BookingRequest; accepted: boolean; reason?: string } | null>(null);
   const [declining, setDeclining] = useState<BookingRequest | null>(null);
+  const [booking, setBooking] = useState<BookingConfig | null>(null);
 
   const load = useCallback(() => api<BookingRequest[]>(`/api/v1/booking-requests${all ? '?status=ALL' : ''}`).then(setItems), [all]);
   // Recarrega sozinha quando chega (ou sai) pedido, sem precisar atualizar a página.
   useEffect(() => { load().catch(e => setError((e as Error).message)); }, [load, version]);
   const done = async () => { await load(); onChanged(); };
+  // Para a lista vazia dizer a coisa certa: só sugere configurar se o agendamento estiver desligado ou sem horário.
+  useEffect(() => { api<BookingConfig>('/api/v1/clinic/booking').then(setBooking).catch(() => setBooking(null)); }, []);
+  const empty = requestsEmpty(booking, all);
 
   return (
     <section>
@@ -34,9 +38,8 @@ export function RequestsTab({ owner, onChanged, version = 0 }: { owner: boolean;
       <AlertSettings />
       {error && <p className="error-box" role="alert">{error}</p>}
       {items?.length === 0 && (
-        <EmptyState icon="bell" title="Nenhuma solicitação aguardando"
-                    text="Ative o agendamento pelo site em Clínica → Horário de atendimento para receber pedidos.">
-          <button onClick={() => navigate('/painel/clinica')}>Configurar horário de atendimento</button>
+        <EmptyState icon="bell" title={empty.title} text={empty.text}>
+          {empty.configure && <button onClick={() => navigate('/painel/clinica')}>Configurar horário de atendimento</button>}
         </EmptyState>
       )}
       <ul className="cards">
