@@ -39,7 +39,7 @@ function App() {
     if (publicSlug || me === undefined || LEGAL.includes(path)) return;
     if (me && isAdmin(me) && !path.startsWith('/admin')) navigate('/admin');
     if (me && !isAdmin(me) && !path.startsWith('/painel')) navigate('/painel');
-    if (me === null && !OPEN.includes(path)) navigate('/login');
+    if (me === null && !OPEN.includes(path) && !path.startsWith('/admin')) navigate('/login');
   }, [me, path, publicSlug]);
 
   const logged = () => api<Me | AdminMe>('/api/v1/auth/me').then(setMe);
@@ -49,7 +49,7 @@ function App() {
   if (me === undefined) return <div className="center muted">Carregando…</div>;
   if (me === null && path === '/') return <Landing signupEnabled={signupEnabled} />;
   if (me === null && path === '/cadastro' && signupEnabled) return <Signup onLogged={logged} />;
-  if (me === null && path === '/admin') return <Login onLogged={logged} signupEnabled={false} admin />;
+  if (me === null && path.startsWith('/admin')) return <Login onLogged={logged} signupEnabled={false} admin />;
   if (me === null) return <Login onLogged={logged} signupEnabled={signupEnabled} />;
   if (isAdmin(me)) return <AdminPanel me={me} onLogout={() => setMe(null)} />;
   return <Panel me={me} onLogout={() => setMe(null)} onRefresh={() => api<Me>('/api/v1/auth/me').then(setMe)} />;
