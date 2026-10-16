@@ -117,7 +117,16 @@ class BookingIntegrationTest extends IntegrationTest {
             .andExpect(jsonPath("$[0].patient.id").value(maria))
             .andExpect(jsonPath("$[0].patient.whatsapp").value("98977770000"))
             .andExpect(jsonPath("$[0].whatsapp").value("98988881111"));
-        mvc.perform(get("/api/v1/booking-requests/count").with(user(OWNER_A))).andExpect(jsonPath("$.pending").value(1));
+        // O contador traz os pedidos mais recentes, para o painel avisar sem recarregar; a outra clínica não vê.
+        mvc.perform(get("/api/v1/booking-requests/count").with(user(OWNER_A)))
+            .andExpect(jsonPath("$.pending").value(1))
+            .andExpect(jsonPath("$.recent[0].id").value(id))
+            .andExpect(jsonPath("$.recent[0].fullName").value("Maria Souza Lima"))
+            .andExpect(jsonPath("$.recent[0].serviceName").value("Pilates"))
+            .andExpect(jsonPath("$.recent[0].startsAt").value(day + "T10:00:00"))
+            .andExpect(jsonPath("$.recent[0].createdAt").isNumber());
+        mvc.perform(get("/api/v1/booking-requests/count").with(user(OWNER_B)))
+            .andExpect(jsonPath("$.pending").value(0)).andExpect(jsonPath("$.recent.length()").value(0));
 
         send(post("/api/v1/booking-requests/" + id + "/accept"), OWNER_A, "{\"updatePatient\":true}")
             .andExpect(status().isOk())

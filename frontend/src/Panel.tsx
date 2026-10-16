@@ -11,6 +11,7 @@ import { FinanceTab, type FinanceSection } from './Finance';
 import { PatientsTab } from './Patients';
 import { ReceiptPage } from './ReceiptPage';
 import { RequestsTab } from './Requests';
+import { RequestAlert, useRequestWatch } from './RequestWatch';
 import { useFonts } from './PublicPage';
 import { navigate, usePath } from './router';
 import { SiteTab } from './SiteTab';
@@ -51,11 +52,8 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
   const tab = (NAV.find(t => t.id === segment)?.id ?? 'hoje') as Tab;
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [more, setMore] = useState(false);
-  const [pending, setPending] = useState(0);
   const [noticeDone, setNoticeDone] = useState(false);
   const owner = me.role === 'OWNER';
-  const refreshPending = () => api<{ pending: number }>('/api/v1/booking-requests/count')
-    .then(c => setPending(c.pending)).catch(() => undefined);
   useFonts('profissional');
 
   useEffect(() => {
@@ -64,14 +62,17 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
   useEffect(() => {
     api<ClinicProfile>('/api/v1/clinic').then(p => { setProfile(p); applyTheme(p); });
   }, []);
-  useEffect(() => { setMore(false); window.scrollTo(0, 0); refreshPending(); }, [tab]);
+  const name = profile?.displayName ?? me.clinicName;
+  // Pedidos do site: acompanhados sem recarregar a página (aviso, som, título da aba e notificação do sistema).
+  const watch = useRequestWatch(name);
+  const pending = watch.pending;
+  useEffect(() => { setMore(false); window.scrollTo(0, 0); watch.refresh(); }, [tab]);
 
   async function logout() {
     await signOut().catch(() => undefined);
     onLogout();
   }
 
-  const name = profile?.displayName ?? me.clinicName;
   const siteUrl = profile?.publicPageEnabled ? `/c/${profile.slug}` : null;
   const brand = profile?.logoVersion
     ? <img className="brand-mark logo" src={logoUrl(profile.logoVersion)!} alt="" />
@@ -115,7 +116,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
           {!owner && <p className="notice small">Você está como colaborador: pode consultar, mas só a responsável altera.</p>}
           {tab === 'hoje' && <TodayTab owner={owner} profile={profile} pendingRequests={pending} />}
           {tab === 'agenda' && <AgendaTab owner={owner} action={sub} />}
-          {tab === 'solicitacoes' && <RequestsTab owner={owner} onChanged={refreshPending} />}
+          {tab === 'solicitacoes' && <RequestsTab owner={owner} onChanged={watch.refresh} version={watch.version} />}
           {tab === 'pacientes' && <PatientsTab owner={owner} patientId={sub} clinicName={name} />}
           {tab === 'financeiro' && <FinanceTab owner={owner} clinicName={name}
                                               section={(['devendo', 'pagamentos', 'receber', 'maquininhas'].includes(sub ?? '') ? sub : 'resumo') as FinanceSection} />}
@@ -124,6 +125,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
           {tab === 'conta' && <AccountTab me={me} />}
           {tab === 'clinica' && profile && <ClinicTab owner={owner} profile={profile} onSaved={saved} />}
         </main>
+        <RequestAlert alerts={watch.alerts} onDismiss={watch.dismiss} />
         {noticeDone && <BirthdayGreeting email={me.email} clinicName={name} />}
 
         <nav className="bottom-nav" aria-label="Seções do painel">

@@ -56,7 +56,10 @@ public class BookingRequestController {
 
     public record DeclineRequest(@Size(max = 300) String reason) {}
 
-    public record Count(int pending) {}
+    /** Pendentes e os mais recentes (para o painel avisar de pedido novo sem recarregar). */
+    public record Count(int pending, List<Recent> recent) {}
+
+    public record Recent(UUID id, String fullName, String serviceName, LocalDateTime startsAt, long createdAt) {}
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
@@ -96,7 +99,17 @@ public class BookingRequestController {
         booking.expire(clinicId);
         Integer n = jdbc.queryForObject("SELECT count(*) FROM booking_requests WHERE clinic_id = ? AND status = 'PENDING'",
             Integer.class, clinicId);
-        return new Count(n == null ? 0 : n);
+        var zone = agenda.zone(clinicId);
+        List<Recent> recent = jdbc.query("""
+                SELECT r.id, r.full_name, s.name AS service_name, r.starts_at, r.created_at
+                  FROM booking_requests r JOIN services s ON s.id = r.service_id AND s.clinic_id = r.clinic_id
+                 WHERE r.clinic_id = ? AND r.status = 'PENDING'
+                 ORDER BY r.created_at DESC LIMIT 5""",
+            (rs, row) -> new Recent(rs.getObject("id", UUID.class), rs.getString("full_name"), rs.getString("service_name"),
+                rs.getObject("starts_at", java.time.OffsetDateTime.class).atZoneSameInstant(zone).toLocalDateTime(),
+                rs.getObject("created_at", java.time.OffsetDateTime.class).toInstant().toEpochMilli()),
+            clinicId);
+        return new Count(n == null ? 0 : n, recent);
     }
 
     @GetMapping("/{id}")
