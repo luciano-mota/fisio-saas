@@ -25,7 +25,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -141,9 +140,21 @@ public class PublicBookingController {
         }
         String payMethod = visiblePrice == null ? null : pixChosen ? "PIX" : "CLINICA";
         LocalDate day = body.startsAt().toLocalDate();
+        // Um pedido de cada vez por clínica: dois visitantes no mesmo segundo não passam do limite de vagas.
+        agenda.lock(clinicId);
         List<LocalTime> free = booking.freeSlots(clinicId, minutes, day, day).getOrDefault(day, List.of());
         if (!free.contains(body.startsAt().toLocalTime())) {
             throw new ConflictException("Esse horário não está mais disponível. Escolha outro.", List.of());
+        }
+        ZoneId zone = agenda.zone(clinicId);
+        // Com mais de uma vaga por horário, a mesma pessoa não segura duas vagas iguais.
+        Integer sameTime = jdbc.queryForObject("""
+                SELECT count(*) FROM booking_requests
+                 WHERE clinic_id = ? AND cpf = ? AND status = 'PENDING' AND tstzrange(starts_at, ends_at) && tstzrange(?, ?)""",
+            Integer.class, clinicId, cpf, agenda.toInstant(body.startsAt(), zone),
+            agenda.toInstant(body.startsAt().plusMinutes(minutes), zone));
+        if (sameTime != null && sameTime > 0) {
+            throw new IllegalArgumentException("Você já pediu esse horário. Aguarde a clínica confirmar.");
         }
         Integer pending = jdbc.queryForObject(
             "SELECT count(*) FROM booking_requests WHERE clinic_id = ? AND cpf = ? AND status = 'PENDING'",
@@ -153,30 +164,22 @@ public class PublicBookingController {
         }
 
         Settings s = booking.settings(clinicId);
-        ZoneId zone = agenda.zone(clinicId);
         // Paciente já cadastrado com este CPF? Fica ligado ao pedido (só a clínica vê).
         UUID patientId = jdbc.query("SELECT id FROM patients WHERE clinic_id = ? AND cpf = ?",
             (rs, n) -> rs.getObject(1, UUID.class), clinicId, cpf).stream().findFirst().orElse(null);
         UUID requestId = UUID.randomUUID();
         String code = RequestCodes.next();
         String token = pixChosen ? RequestCodes.token() : null;
-        try {
-            jdbc.update("""
-                INSERT INTO booking_requests(id, clinic_id, service_id, starts_at, ends_at, full_name, cpf, whatsapp,
-                                             birth_date, notes, hold_until, patient_id, consent_at, pay_method, pay_amount,
-                                             code, receipt_token_hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now() + make_interval(hours => ?), ?, now(), ?, ?, ?, ?)""",
-                requestId, clinicId, body.serviceId(), agenda.toInstant(body.startsAt(), zone),
-                agenda.toInstant(body.startsAt().plusMinutes(minutes), zone), body.fullName().trim().replaceAll("\\s+", " "),
-                cpf, whatsapp, body.birthDate(), body.notes() == null || body.notes().isBlank() ? null : body.notes().trim(),
-                s.holdHours(), patientId, payMethod, payMethod == null ? null : visiblePrice, code,
-                token == null ? null : RequestCodes.sha256(token));
-        } catch (DataIntegrityViolationException taken) {
-            if (String.valueOf(taken.getMessage()).contains("booking_requests_no_overlap")) {
-                throw new ConflictException("Esse horário acabou de ser reservado por outra pessoa. Escolha outro.", List.of());
-            }
-            throw taken;
-        }
+        jdbc.update("""
+            INSERT INTO booking_requests(id, clinic_id, service_id, starts_at, ends_at, full_name, cpf, whatsapp,
+                                         birth_date, notes, hold_until, patient_id, consent_at, pay_method, pay_amount,
+                                         code, receipt_token_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now() + make_interval(hours => ?), ?, now(), ?, ?, ?, ?)""",
+            requestId, clinicId, body.serviceId(), agenda.toInstant(body.startsAt(), zone),
+            agenda.toInstant(body.startsAt().plusMinutes(minutes), zone), body.fullName().trim().replaceAll("\\s+", " "),
+            cpf, whatsapp, body.birthDate(), body.notes() == null || body.notes().isBlank() ? null : body.notes().trim(),
+            s.holdHours(), patientId, payMethod, payMethod == null ? null : visiblePrice, code,
+            token == null ? null : RequestCodes.sha256(token));
         log.info("Pedido de agendamento pelo site: clinica={} servico={} inicio={} pagamento={}", clinicId, body.serviceId(),
             body.startsAt(), payMethod);
         if (!pixChosen) return ResponseEntity.status(HttpStatus.ACCEPTED).body(Sent.plain());

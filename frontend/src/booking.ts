@@ -90,3 +90,18 @@ export function requestsEmpty(booking: { enabled: boolean; hours: unknown[] } | 
   return { title, configure: false,
     text: 'Quando alguém pedir um horário pelo seu site, o pedido aparece aqui na hora, com aviso no painel.' };
 }
+
+/** Opções de atendimentos no mesmo horário (Clínica → Horário de atendimento). */
+export const SIMULTANEOUS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
+
+export function simultaneousLabel(n: number): string {
+  return n === 1 ? '1 pessoa por vez' : `Até ${n} pessoas ao mesmo tempo`;
+}
+
+/** Explica o efeito na agenda e no site; bloqueios sempre fecham o horário. */
+export function simultaneousHint(n: number): string {
+  return n === 1
+    ? 'Cada horário recebe uma sessão. Aumente se você atende mais de uma pessoa ao mesmo tempo (ex.: Pilates em grupo).'
+    : `A agenda e o site aceitam até ${n} sessões no mesmo horário; todo pedido do site continua esperando sua confirmação. ` +
+      'Horário bloqueado fecha para todos.';
+}

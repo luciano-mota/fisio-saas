@@ -98,18 +98,6 @@ class AgendaIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void bancoTambemBloqueiaSobreposicaoMesmoSemAVerificacaoDaApi() {
-        String insert = """
-            INSERT INTO appointments(id, clinic_id, kind, starts_at, ends_at)
-            VALUES (gen_random_uuid(), ?, 'BLOCK', ?::timestamptz, ?::timestamptz)""";
-        jdbc.update(insert, clinicA, "2030-01-07 12:00-03", "2030-01-07 14:00-03");
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> jdbc.update(insert, clinicA, "2030-01-07 13:00-03", "2030-01-07 15:00-03"))
-            .hasMessageContaining("appointments_no_overlap");
-        jdbc.update(insert, clinicB, "2030-01-07 13:00-03", "2030-01-07 15:00-03");
-    }
-
-    @Test
     void bloqueioDeHorarioConflitaComSessao() throws Exception {
         String almoco = create("/api/v1/blocks", OWNER_A, """
             {"startsAt":"%sT12:00","endsAt":"%sT14:00","notes":"Almoço"}""".formatted(FUTURO, FUTURO));

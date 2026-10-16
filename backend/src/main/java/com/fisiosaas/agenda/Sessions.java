@@ -28,15 +28,15 @@ public class Sessions {
         int defaultMinutes = agenda.requireOwnService(clinicId, serviceId);
         int minutes = durationMinutes == null ? defaultMinutes : durationMinutes;
         Slot slot = new Slot(startsAt, startsAt.plusMinutes(minutes));
-        agenda.requireFree(clinicId, slot, null);
+        agenda.requireFree(clinicId, slot, null, patientId);
 
         ZoneId zone = agenda.zone(clinicId);
         UUID id = UUID.randomUUID();
-        agenda.write(() -> jdbc.update("""
+        jdbc.update("""
             INSERT INTO appointments(id, clinic_id, kind, patient_id, service_id, starts_at, ends_at, notes)
             VALUES (?, ?, 'SESSION', ?, ?, ?, ?, ?)""",
             id, clinicId, patientId, serviceId, agenda.toInstant(slot.startsAt(), zone),
-            agenda.toInstant(slot.endsAt(), zone), notes == null || notes.isBlank() ? null : notes.trim()));
+            agenda.toInstant(slot.endsAt(), zone), notes == null || notes.isBlank() ? null : notes.trim());
         ledger.linkNew(clinicId, id);
         return id;
     }

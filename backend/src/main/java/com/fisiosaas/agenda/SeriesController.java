@@ -103,7 +103,7 @@ public class SeriesController {
         for (LocalDate date : dates) {
             LocalDateTime start = date.atTime(body.startTime());
             Slot slot = new Slot(start, start.plusMinutes(minutes));
-            agenda.conflictWith(clinicId, slot, null).ifPresentOrElse(
+            agenda.conflictWith(clinicId, slot, null, block ? null : body.patientId()).ifPresentOrElse(
                 conflict -> conflicts.add(label(date) + ": " + conflict),
                 () -> free.add(slot));
         }
@@ -124,17 +124,15 @@ public class SeriesController {
 
         ZoneId zone = agenda.zone(clinicId);
         List<UUID> ids = new ArrayList<>();
-        agenda.write(() -> {
-            for (Slot slot : free) {
-                UUID id = UUID.randomUUID();
-                jdbc.update("""
-                    INSERT INTO appointments(id, clinic_id, kind, patient_id, service_id, starts_at, ends_at, notes, series_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    id, clinicId, block ? "BLOCK" : "SESSION", body.patientId(), body.serviceId(),
-                    agenda.toInstant(slot.startsAt(), zone), agenda.toInstant(slot.endsAt(), zone), notes, seriesId);
-                ids.add(id);
-            }
-        });
+        for (Slot slot : free) {
+            UUID id = UUID.randomUUID();
+            jdbc.update("""
+                INSERT INTO appointments(id, clinic_id, kind, patient_id, service_id, starts_at, ends_at, notes, series_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                id, clinicId, block ? "BLOCK" : "SESSION", body.patientId(), body.serviceId(),
+                agenda.toInstant(slot.startsAt(), zone), agenda.toInstant(slot.endsAt(), zone), notes, seriesId);
+            ids.add(id);
+        }
         // Em ordem de data: as primeiras sessões usam o pacote; as que passarem do saldo ficam avulsas.
         if (!block) ids.forEach(id -> ledger.linkNew(clinicId, id));
         List<AppointmentView> created = ids.stream().map(id -> agenda.find(clinicId, id)).toList();

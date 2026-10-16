@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, type BookingConfig, type OpeningHours } from './api';
-import { hoursSummary } from './booking';
+import { hoursSummary, SIMULTANEOUS, simultaneousHint, simultaneousLabel } from './booking';
 import { Icon, useUi } from './ui';
 
 const DAYS = ['', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
@@ -69,6 +69,12 @@ export function BookingSettings({ owner }: { owner: boolean }) {
           {config.hours.length > 0 && <button type="button" className="small-button" onClick={() => setHours([])}>Limpar</button>}
         </div>
         {summary.length > 0 && <p className="small"><strong>No site:</strong> {summary.join(' · ')}</p>}
+
+        <label>Atendimentos no mesmo horário
+          <select value={config.maxSimultaneous} onChange={e => set({ maxSimultaneous: Number(e.target.value) })}>
+            {SIMULTANEOUS.map(n => <option key={n} value={n}>{simultaneousLabel(n)}</option>)}
+          </select>
+          <span className="muted small">{simultaneousHint(config.maxSimultaneous)}</span></label>
 
         <label className="switch"><input type="checkbox" checked={config.enabled} onChange={e => set({ enabled: e.target.checked })} />
           <span>Permitir agendamento pelo site</span></label>
