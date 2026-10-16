@@ -1,5 +1,6 @@
 package com.fisiosaas.platform;
 
+import com.fisiosaas.finance.CashFlowController;
 import com.fisiosaas.identity.CurrentClinic;
 import com.fisiosaas.pix.PixCode;
 import com.fisiosaas.pix.PixCode.KeyType;
@@ -231,7 +232,21 @@ public class SubscriptionController {
         return find(id);
     }
 
-    @GetMapping("/api/v1/admin/settings/pix")
+    /** Fluxo de caixa da plataforma: mensalidades confirmadas no período (por data de pagamento). */
+    @GetMapping("/api/v1/admin/finance/cashflow")
+    public CashFlowController.CashFlow cashFlow(
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate to) {
+        CashFlowController.validate(from, to);
+        List<CashFlowController.Entry> entries = new java.util.ArrayList<>(jdbc.query(SELECT + """
+                 WHERE s.status = 'PAID' AND s.paid_on BETWEEN ? AND ?""",
+            (rs, n) -> new CashFlowController.Entry(rs.getObject("paid_on", LocalDate.class), "IN", rs.getString("description"),
+                rs.getString("clinic_name"), rs.getString("method"), rs.getBigDecimal("paid_amount"), BigDecimal.ZERO,
+                rs.getBigDecimal("paid_amount")), from, to));
+        return CashFlowController.build(new CashFlowController.Header("PhysioEvo", null, null, null, null, null), from, to, entries);
+    }
+
+        @GetMapping("/api/v1/admin/settings/pix")
     public PixSettings pixSettings() {
         return jdbc.queryForObject("SELECT pix_key_type, pix_key, pix_name, pix_city FROM platform_settings WHERE id = 1",
             (rs, n) -> new PixSettings(rs.getString(1) == null ? null : KeyType.valueOf(rs.getString(1)), rs.getString(2),

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, signOut, type AdminClinic, type AdminClinicDetail, type AdminMe, type AdminOverview, type EffectiveStatus } from './api';
 import { dateBrFull, inDays, STATUS_LABEL } from './access';
 import { AdminFinance, ClinicBilling } from './AdminFinance';
+import { CashFlowReport } from './CashFlowReport';
 import { AdminNotices } from './AdminNotices';
 import { formatPhone } from './format';
 import { navigate, usePath } from './router';
@@ -36,6 +37,8 @@ const SECTIONS = [{ path: '/admin', label: 'Clínicas', icon: 'building' }, { pa
 function AdminHome({ me, onLogout }: { me: AdminMe; onLogout: () => void }) {
   const path = usePath();
   const section = SECTIONS.find(s => s.path !== '/admin' && path.startsWith(s.path))?.path ?? '/admin';
+  // Relatório de fluxo de caixa da plataforma: página limpa, com a logo da PhysioEvo.
+  if (path.startsWith('/admin/relatorio')) return <CashFlowReport source="/api/v1/admin/finance/cashflow" back="/admin/financeiro" platform />;
   return (
     <div className="admin">
       <header className="admin-top">

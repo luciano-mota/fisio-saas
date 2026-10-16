@@ -814,3 +814,27 @@ button.primary.big { min-height: 48px; font-size: 1.02rem; }
 .admin-tile.ok strong { color: #15803d; } .admin-tile.info strong { color: #1d4ed8; } .admin-tile.danger strong { color: #b91c1c; }
 .charge-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
 .admin-head .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- Relatório de fluxo de caixa ---------- */
+.summary-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.report .receipt-paper { padding: 32px 36px; }
+.report-head { display: flex; justify-content: space-between; gap: 20px; border-bottom: 2px solid #111; padding-bottom: 14px; flex-wrap: wrap; }
+.report-brand { display: flex; gap: 14px; align-items: center; }
+.report-brand > div { display: grid; gap: 2px; }
+.report-brand span { color: #333; font-size: .88rem; }
+.report-logo { max-height: 64px; max-width: 160px; object-fit: contain; }
+.report-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 18px 0; }
+.report-totals > div { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; }
+.report-totals span { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: #555; }
+.report-totals strong { font-size: 1.15rem; }
+.report-totals small { color: #666; font-size: .78rem; }
+.report-totals .main { border: 2px solid #111; }
+.report-table { font-size: .84rem; }
+.report-table tr.out td { color: #9a3412; }
+.report-methods h2 { font-size: 1rem; margin: 22px 0 8px; }
+.report-methods ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.report-methods li { display: flex; gap: 10px; align-items: baseline; border-bottom: 1px dashed #ccc; padding-bottom: 4px; }
+.report-methods li span { flex: 1; }
+.report-methods small { color: #666; }
+@media (max-width: 640px) { .report .receipt-paper { padding: 18px 12px; overflow-x: auto; } .report-table { min-width: 620px; } }
+@media print { .report .receipt-paper { padding: 0; } .report-table { font-size: 9.5pt; } }

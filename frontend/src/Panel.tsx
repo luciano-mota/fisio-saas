@@ -12,6 +12,7 @@ import { PatientsTab } from './Patients';
 import { PlatformNotices } from './PlatformNotices';
 import { SubscriptionNotice } from './Subscription';
 import { ReceiptPage } from './ReceiptPage';
+import { CashFlowReport } from './CashFlowReport';
 import { RequestsTab } from './Requests';
 import { RequestAlert, useRequestWatch } from './RequestWatch';
 import { useFonts } from './PublicPage';
@@ -89,6 +90,8 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
   if (me.mustChangePassword) return <UiProvider><MustChangePassword me={me} onDone={onRefresh} onLogout={logout} /></UiProvider>;
   // Recibo: página limpa (sem menu), feita para imprimir ou salvar em PDF.
   if (segment === 'recibo') return <UiProvider><ReceiptPage /></UiProvider>;
+  // Relatório de fluxo de caixa: página limpa para imprimir ou salvar em PDF.
+  if (segment === 'relatorio') return <UiProvider><CashFlowReport source="/api/v1/finance/cashflow" back="/painel/financeiro" /></UiProvider>;
 
   return (
     <UiProvider>

@@ -42,6 +42,15 @@ export type AdminFinance = {
   overdue: MoneyTotal; charges: SubscriptionCharge[];
 };
 
+/** Relatório de fluxo de caixa (clínica ou plataforma). */
+export type CashFlowEntry = { date: string; kind: 'IN' | 'OUT'; description: string; party: string; method: string; gross: number; fee: number; net: number };
+export type CashFlow = {
+  clinic: { name: string; professionalName: string | null; crefito: string | null; address: string | null; whatsapp: string | null; logoVersion: number | null };
+  from: string; to: string; entries: CashFlowEntry[];
+  totals: { gross: number; fees: number; expenses: number; net: number; entries: number; exits: number };
+  byMethod: { method: string; count: number; gross: number; net: number }[];
+};
+
 /** Avisos da plataforma para as clínicas. */
 export type NoticeLevel = 'INFO' | 'IMPORTANT' | 'URGENT';
 export type NoticeDisplay = 'BANNER' | 'MODAL';
@@ -157,6 +166,8 @@ export type FinanceSummary = {
   month: string; received: number; fees: number; net: number; toReceive: number; open: number; payments: number;
   /** Mensalidades da PhysioEvo pagas no mês (despesa) e informadas aguardando confirmação. */
   expenses: number; expensesPending: number;
+  /** Líquido das taxas menos as despesas (o que sobra no mês). */
+  result: number;
   byMethod: { method: PaymentMethod; charged: number; fees: number; net: number }[];
 };
 export type Receivable = {

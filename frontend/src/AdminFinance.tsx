@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, type AdminFinance as Finance, type PixKeyType, type SubscriptionCharge, type SubscriptionPlan } from './api';
 import { addMonths, brl, dateBr, monthLabel, moneyInput, parseMoney } from './finance';
 import { maskCpf, maskPhone } from './format';
+import { CashFlowSheet } from './CashFlowReport';
 import { TYPES } from './PixSettings';
 import { adminStatusLabel, statusTone } from './subscription';
 import { EmptyState, Icon, Sheet, useUi } from './ui';
@@ -17,6 +18,7 @@ export function AdminFinance() {
   const [confirming, setConfirming] = useState<SubscriptionCharge | null>(null);
   const [reasonFor, setReasonFor] = useState<{ charge: SubscriptionCharge; kind: 'reject' | 'cancel' } | null>(null);
   const [pixOpen, setPixOpen] = useState(false);
+  const [report, setReport] = useState(false);
 
   const load = useCallback((m: string) => api<Finance>(`/api/v1/admin/finance?month=${m}`)
     .then(d => { setData(d); setMonth(d.month); }).catch(e => setError((e as Error).message)), []);
@@ -47,6 +49,7 @@ export function AdminFinance() {
         <div><h1>Financeiro dos assinantes</h1>
           <p className="muted">Mensalidades das clínicas. O pagamento informado pela clínica fica pendente até você confirmar.</p></div>
         <div className="actions">
+          <button onClick={() => setReport(true)}><Icon name="money" size={18} /> Relatório</button>
           <button onClick={() => setPixOpen(true)}><Icon name="key" size={18} /> Meu Pix</button>
           <button className="primary" disabled={!month} onClick={generate}><Icon name="plus" size={18} /> Gerar mensalidades do mês</button>
         </div>
@@ -94,6 +97,7 @@ export function AdminFinance() {
       {reasonFor && <ReasonSheet {...reasonFor} onClose={() => setReasonFor(null)}
                                  onDone={() => { setReasonFor(null); toast(reasonFor.kind === 'reject' ? 'Voltou para em aberto' : 'Mensalidade cancelada'); load(month); }} />}
       {pixOpen && <PlatformPixSheet onClose={() => setPixOpen(false)} />}
+      {report && data && <CashFlowSheet path="/admin/relatorio" todayIso={data.today} onClose={() => setReport(false)} />}
     </>
   );
 }

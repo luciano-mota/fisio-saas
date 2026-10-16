@@ -30,11 +30,11 @@ public class FinanceController {
 
     /**
      * expenses: mensalidades da PhysioEvo pagas no mês (despesa confirmada pela plataforma); expensesPending: pagamento
-     * informado pela clínica e ainda não confirmado.
+     * informado pela clínica e ainda não confirmado. result: o que sobra no mês = líquido das taxas − despesas.
      */
     public record Summary(String month, BigDecimal received, BigDecimal fees, BigDecimal net, BigDecimal toReceive,
                           BigDecimal open, int payments, List<MethodTotal> byMethod, BigDecimal expenses,
-                          BigDecimal expensesPending) {}
+                          BigDecimal expensesPending, BigDecimal result) {}
 
     public record MethodTotal(String method, BigDecimal charged, BigDecimal fees, BigDecimal net) {}
 
@@ -123,7 +123,7 @@ public class FinanceController {
                 SELECT coalesce(sum(amount), 0) FROM subscription_charges WHERE clinic_id = ? AND status = 'INFORMED'""",
             BigDecimal.class, clinicId);
         return new Summary(ym.toString(), received, fees, net, toReceive, open, count == null ? 0 : count, byMethod,
-            expenses, expensesPending);
+            expenses, expensesPending, net.subtract(expenses));
     }
 
     @GetMapping("/finance/receivables")
