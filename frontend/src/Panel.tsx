@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, logoUrl, signOut, type ClinicProfile, type Me } from './api';
 import { themeVariables } from './color';
 import { AgendaTab } from './Agenda';
@@ -9,6 +9,7 @@ import { BirthdayGreeting } from './Birthdays';
 import { ClinicTab } from './ClinicTab';
 import { FinanceTab, type FinanceSection } from './Finance';
 import { PatientsTab } from './Patients';
+import { PlatformNotices } from './PlatformNotices';
 import { ReceiptPage } from './ReceiptPage';
 import { RequestsTab } from './Requests';
 import { RequestAlert, useRequestWatch } from './RequestWatch';
@@ -53,6 +54,8 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [more, setMore] = useState(false);
   const [noticeDone, setNoticeDone] = useState(false);
+  const [platformDone, setPlatformDone] = useState(false);
+  const platformReady = useCallback(() => setPlatformDone(true), []);
   const owner = me.role === 'OWNER';
   useFonts('profissional');
 
@@ -113,6 +116,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
 
         <main className="content">
           <AccessNotice email={me.email} onReady={() => setNoticeDone(true)} />
+          <PlatformNotices active={noticeDone} onReady={platformReady} />
           {!owner && <p className="notice small">Você está como colaborador: pode consultar, mas só a responsável altera.</p>}
           {tab === 'hoje' && <TodayTab owner={owner} profile={profile} pendingRequests={pending} />}
           {tab === 'agenda' && <AgendaTab owner={owner} action={sub} />}
@@ -126,7 +130,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
           {tab === 'clinica' && profile && <ClinicTab owner={owner} profile={profile} onSaved={saved} />}
         </main>
         <RequestAlert alerts={watch.alerts} onDismiss={watch.dismiss} />
-        {noticeDone && <BirthdayGreeting email={me.email} clinicName={name} />}
+        {platformDone && <BirthdayGreeting email={me.email} clinicName={name} />}
 
         <nav className="bottom-nav" aria-label="Seções do painel">
           {BOTTOM.map(t => (

@@ -747,3 +747,39 @@ label.inline { max-width: 160px; }
 @keyframes request-ring { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
 @media (prefers-reduced-motion: reduce) { .request-alert, .request-alert-icon { animation: none; } }
 .alert-settings { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; margin: 2px 0 12px; }
+
+/* ---------- Avisos da plataforma ---------- */
+.platform-banner { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; margin: 0 0 14px;
+  border: 1px solid; line-height: 1.45; }
+.platform-banner .icon { flex: none; margin-top: 2px; }
+.platform-banner p { margin: 2px 0 0; white-space: pre-line; }
+.platform-banner .link-button { white-space: nowrap; }
+.lv-INFO.platform-banner { background: #E3F6F1; border-color: #a7e3d3; color: #0A5C63; }
+.lv-IMPORTANT.platform-banner { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }
+.lv-URGENT.platform-banner { background: #fff1ec; border-color: #ffc9b5; color: #9a3412; }
+.platform-card { display: grid; gap: 6px; text-align: left; }
+.platform-card h3 { margin: 4px 0 0; font-size: 1.15rem; }
+.overlay.confirm .platform-card p, .platform-card p { margin: 0 0 6px; white-space: pre-line; line-height: 1.5; }
+.platform-card-tag { display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 4px 10px; border-radius: 99px;
+  font-size: .78rem; font-weight: 800; }
+.lv-INFO .platform-card-tag { background: #E3F6F1; color: #0A5C63; }
+.lv-IMPORTANT .platform-card-tag { background: #dbeafe; color: #1e3a8a; }
+.lv-URGENT .platform-card-tag { background: #ffe4d9; color: #9a3412; }
+.overlay.platform-modal .sheet { max-width: 480px; }
+.admin-nav { display: flex; gap: 4px; margin-left: 8px; }
+.admin-nav a { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; color: var(--muted);
+  text-decoration: none; font-weight: 600; }
+.admin-nav a.active { background: #E3F6F1; color: #0A5C63; }
+.admin-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.admin-head h1 { margin: 0 0 4px; }
+.pill.nst-LIVE { background: #dcfce7; color: #14532d; } .pill.nst-SCHEDULED { background: #dbeafe; color: #1e3a8a; }
+.pill.nst-ENDED, .pill.nst-INACTIVE { background: #e5e7eb; color: #374151; }
+.pill.lv-pill.lv-INFO { background: #E3F6F1; color: #0A5C63; } .pill.lv-pill.lv-IMPORTANT { background: #dbeafe; color: #1e3a8a; }
+.pill.lv-pill.lv-URGENT { background: #ffe4d9; color: #9a3412; }
+.notice-preview { display: grid; gap: 6px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px dashed var(--border); }
+.notice-preview .platform-banner { margin: 0; }
+.notice-preview-modal { background: #fff; border-radius: 14px; padding: 16px; box-shadow: var(--shadow-sm); }
+@media (max-width: 760px) {
+  .admin-top { flex-wrap: wrap; }
+  .admin-nav { order: 5; width: 100%; margin-left: 0; }
+}

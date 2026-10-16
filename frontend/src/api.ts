@@ -26,6 +26,16 @@ export type AdminLogEntry = {
   reason: string; createdAt: string;
 };
 export type AdminClinicDetail = { clinic: AdminClinic; history: AdminLogEntry[] };
+
+/** Avisos da plataforma para as clínicas. */
+export type NoticeLevel = 'INFO' | 'IMPORTANT' | 'URGENT';
+export type NoticeDisplay = 'BANNER' | 'MODAL';
+export type ClinicNotice = { id: string; title: string; body: string; level: NoticeLevel; display: NoticeDisplay; startsOn: string; read: boolean };
+export type AdminNotice = {
+  id: string; title: string; body: string; level: NoticeLevel; display: NoticeDisplay; clinicId: string | null;
+  clinicName: string | null; startsOn: string; endsOn: string | null; active: boolean;
+  status: 'SCHEDULED' | 'LIVE' | 'ENDED' | 'INACTIVE'; readers: number; clinicsRead: number; createdBy: string; createdAt: string;
+};
 export type Member = {
   id: string; email: string; fullName: string | null; role: 'OWNER' | 'STAFF'; active: boolean; mustChangePassword: boolean;
   createdAt: string; me: boolean;

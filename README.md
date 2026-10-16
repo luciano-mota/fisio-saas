@@ -96,6 +96,11 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   de pacientes (só a quantidade). Cadastro pelo site começa **em teste, sem prazo**: a equipe decide em `/admin` quantos dias dar (ou define um
   padrão com `TRIAL_DAYS`).
 - **Aviso de vencimento** no painel da clínica: faixa a partir de 7 dias antes e janela nos dias 7, 3, 1 e no dia.
+- **Avisos da plataforma** (`/admin/avisos`): a equipe publica mensagens para todas as clínicas ou para uma, como
+  faixa no topo (até dispensar) ou janela (até "Entendi"), com nível, período e prévia; vê quantos leram. Nada é
+  apagado (desativa).
+- **Pedidos do site em tempo real**: o painel confere a cada 20 s; pedido novo aparece com aviso, som (opcional),
+  número no título da aba e notificação do sistema, sem recarregar a página.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do
   site são apagadas de verdade ao remover (não são histórico e podem mostrar pessoas — LGPD).
 

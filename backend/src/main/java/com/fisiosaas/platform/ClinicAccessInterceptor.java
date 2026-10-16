@@ -17,12 +17,14 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * Aplica a situação da assinatura no painel: bloqueada não acessa nada; suspensa ou vencida só consulta
- * (trocar a própria senha e sair continuam liberados). Os dados ficam guardados.
+ * (trocar a própria senha, marcar aviso como lido e sair continuam liberados). Os dados ficam guardados.
  */
 @Component
 public class ClinicAccessInterceptor implements HandlerInterceptor {
     private static final Set<String> READ = Set.of("GET", "HEAD", "OPTIONS");
     private static final Set<String> ALWAYS_ALLOWED = Set.of("/api/v1/account/password");
+    /** Marcar aviso da plataforma como lido também vale com o painel só para consulta. */
+    private static final java.util.regex.Pattern NOTICE_READ = java.util.regex.Pattern.compile("^/api/v1/notices/[^/]+/read$");
 
     private final JdbcTemplate jdbc;
     private final ClinicAccess access;
@@ -48,7 +50,8 @@ public class ClinicAccessInterceptor implements HandlerInterceptor {
             return deny(response, "Acesso bloqueado. Fale com o suporte do PhysioEvo.");
         }
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        if (state.readOnly() && !READ.contains(request.getMethod()) && !ALWAYS_ALLOWED.contains(path)) {
+        if (state.readOnly() && !READ.contains(request.getMethod()) && !ALWAYS_ALLOWED.contains(path)
+            && !NOTICE_READ.matcher(path).matches()) {
             return deny(response, "EXPIRED".equals(state.effective())
                 ? "O período de acesso terminou: o painel está só para consulta. Seus dados continuam guardados. Fale com o suporte para renovar."
                 : "Acesso suspenso: o painel está só para consulta. Seus dados continuam guardados. Fale com o suporte do PhysioEvo.");

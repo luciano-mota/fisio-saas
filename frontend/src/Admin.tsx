@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, signOut, type AdminClinic, type AdminClinicDetail, type AdminMe, type AdminOverview, type EffectiveStatus } from './api';
 import { dateBrFull, inDays, STATUS_LABEL } from './access';
+import { AdminNotices } from './AdminNotices';
 import { formatPhone } from './format';
+import { navigate, usePath } from './router';
 import { EmptyState, Icon, Sheet, UiProvider, useUi } from './ui';
 
 type Action = 'TRIAL' | 'FREE' | 'ACTIVE' | 'SUSPEND' | 'BLOCK';
@@ -27,7 +29,35 @@ export function AdminPanel({ me, onLogout }: { me: AdminMe; onLogout: () => void
   return <UiProvider><AdminHome me={me} onLogout={onLogout} /></UiProvider>;
 }
 
+const SECTIONS = [{ path: '/admin', label: 'Clínicas', icon: 'building' }, { path: '/admin/avisos', label: 'Avisos', icon: 'bell' }] as const;
+
 function AdminHome({ me, onLogout }: { me: AdminMe; onLogout: () => void }) {
+  const path = usePath();
+  const section = path.startsWith('/admin/avisos') ? '/admin/avisos' : '/admin';
+  return (
+    <div className="admin">
+      <header className="admin-top">
+        <img src="/brand/physioevo-logo.svg" alt="PhysioEvo" height={30} />
+        <span className="admin-tag">Administração</span>
+        <nav className="admin-nav" aria-label="Seções da administração">
+          {SECTIONS.map(s => (
+            <a key={s.path} href={s.path} className={section === s.path ? 'active' : ''} aria-current={section === s.path ? 'page' : undefined}
+               onClick={e => { e.preventDefault(); navigate(s.path); }}><Icon name={s.icon} size={18} />{s.label}</a>
+          ))}
+        </nav>
+        <span className="grow" />
+        <span className="muted small admin-email">{me.email}</span>
+        <button className="link-button" onClick={async () => { await signOut().catch(() => undefined); onLogout(); }}>
+          <Icon name="logout" size={18} /> Sair</button>
+      </header>
+      <main className="admin-main">
+        {section === '/admin/avisos' ? <AdminNotices /> : <AdminClinics />}
+      </main>
+    </div>
+  );
+}
+
+function AdminClinics() {
   const [data, setData] = useState<AdminOverview | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<EffectiveStatus | 'SOON' | null>(null);
@@ -46,16 +76,7 @@ function AdminHome({ me, onLogout }: { me: AdminMe; onLogout: () => void }) {
   const shown = data?.clinics.filter(c => !filter || (filter === 'SOON' ? soon(c) : c.effectiveStatus === filter)) ?? [];
 
   return (
-    <div className="admin">
-      <header className="admin-top">
-        <img src="/brand/physioevo-logo.svg" alt="PhysioEvo" height={30} />
-        <span className="admin-tag">Administração</span>
-        <span className="grow" />
-        <span className="muted small admin-email">{me.email}</span>
-        <button className="link-button" onClick={async () => { await signOut().catch(() => undefined); onLogout(); }}>
-          <Icon name="logout" size={18} /> Sair</button>
-      </header>
-      <main className="admin-main">
+    <>
         <h1>Clínicas assinantes</h1>
         <p className="muted">Situação de cada conta. Aqui não aparecem dados de pacientes; só a quantidade, para acompanhar o uso.</p>
         {error && <p className="error-box" role="alert">{error}</p>}
@@ -90,9 +111,8 @@ function AdminHome({ me, onLogout }: { me: AdminMe; onLogout: () => void }) {
             </li>
           ))}
         </ul>
-      </main>
       {selected && <ClinicSheet id={selected} onClose={() => setSelected(null)} onChanged={load} />}
-    </div>
+    </>
   );
 }
 
