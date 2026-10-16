@@ -102,14 +102,14 @@ public class AppointmentController {
     public AppointmentView block(Authentication auth, @Valid @RequestBody BlockRequest body) {
         UUID clinicId = current.requireOwner(auth).clinicId();
         Slot slot = new Slot(body.startsAt(), body.endsAt());
-        agenda.requireFree(clinicId, slot, null);
+        agenda.requireFree(clinicId, slot, null, null);
 
         ZoneId zone = agenda.zone(clinicId);
         UUID id = UUID.randomUUID();
-        agenda.write(() -> jdbc.update("""
+        jdbc.update("""
             INSERT INTO appointments(id, clinic_id, kind, starts_at, ends_at, notes) VALUES (?, ?, 'BLOCK', ?, ?, ?)""",
             id, clinicId, agenda.toInstant(slot.startsAt(), zone), agenda.toInstant(slot.endsAt(), zone),
-            blankToNull(body.notes())));
+            blankToNull(body.notes()));
         return agenda.find(clinicId, id);
     }
 
@@ -127,12 +127,12 @@ public class AppointmentController {
             : ChronoUnit.MINUTES.between(old.startsAt(), old.endsAt());
         Slot slot = new Slot(body.startsAt(), body.startsAt().plusMinutes(minutes));
         boolean moved = !slot.startsAt().equals(old.startsAt()) || !slot.endsAt().equals(old.endsAt());
-        if (moved) agenda.requireFree(clinicId, slot, id);
+        if (moved) agenda.requireFree(clinicId, slot, id, old.patientId());
 
         ZoneId zone = agenda.zone(clinicId);
         OffsetDateTime newStart = agenda.toInstant(slot.startsAt(), zone);
         boolean timeChanged = !slot.startsAt().equals(old.startsAt());
-        agenda.write(() -> jdbc.update("""
+        jdbc.update("""
             UPDATE appointments
                SET starts_at = ?, ends_at = ?, notes = ?,
                    original_starts_at = CASE WHEN ? THEN coalesce(original_starts_at, starts_at) ELSE original_starts_at END,
@@ -141,7 +141,7 @@ public class AppointmentController {
                    updated_at = now()
              WHERE id = ? AND clinic_id = ?""",
             newStart, agenda.toInstant(slot.endsAt(), zone), blankToNull(body.notes()),
-            timeChanged, timeChanged, timeChanged, id, clinicId));
+            timeChanged, timeChanged, timeChanged, id, clinicId);
         return agenda.find(clinicId, id);
     }
 
@@ -164,11 +164,10 @@ public class AppointmentController {
             throw new IllegalArgumentException("Só dá para marcar realizada ou falta depois do horário da sessão");
         }
         if (old.status().equals("CANCELED") && target != Status.CANCELED) {
-            agenda.requireFree(clinicId, new Slot(old.startsAt(), old.endsAt()), id);
+            agenda.requireFree(clinicId, new Slot(old.startsAt(), old.endsAt()), id, old.patientId());
         }
-        agenda.write(() -> jdbc.update(
-            "UPDATE appointments SET status = ?, updated_at = now() WHERE id = ? AND clinic_id = ?",
-            target.name(), id, clinicId));
+        jdbc.update("UPDATE appointments SET status = ?, updated_at = now() WHERE id = ? AND clinic_id = ?",
+            target.name(), id, clinicId);
         ledger.applyStatus(clinicId, id);
         return agenda.find(clinicId, id);
     }

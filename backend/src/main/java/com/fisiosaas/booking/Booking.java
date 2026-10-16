@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class Booking {
 
-    public record Settings(boolean enabled, int minNoticeHours, int maxDays, int holdHours, int stepMinutes) {}
+    public record Settings(boolean enabled, int minNoticeHours, int maxDays, int holdHours, int stepMinutes, int maxSimultaneous) {}
 
     private final JdbcTemplate jdbc;
     private final Agenda agenda;
@@ -31,9 +31,11 @@ public class Booking {
 
     public Settings settings(UUID clinicId) {
         return jdbc.queryForObject("""
-                SELECT booking_enabled, booking_min_notice_hours, booking_max_days, booking_hold_hours, booking_step_minutes
+                SELECT booking_enabled, booking_min_notice_hours, booking_max_days, booking_hold_hours, booking_step_minutes,
+                       max_simultaneous
                   FROM clinics WHERE id = ?""",
-            (rs, n) -> new Settings(rs.getBoolean(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getInt(5)), clinicId);
+            (rs, n) -> new Settings(rs.getBoolean(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getInt(5), rs.getInt(6)),
+            clinicId);
     }
 
     public List<Hours> hours(UUID clinicId) {
@@ -52,7 +54,10 @@ public class Booking {
         return LocalDateTime.now(agenda.zone(clinicId));
     }
 
-    /** Horários livres por dia para um serviço de {@code minutes} minutos. Expira pedidos vencidos antes de calcular. */
+    /**
+     * Horários com vaga por dia para um serviço de {@code minutes} minutos. Expira pedidos vencidos antes de calcular.
+     * Dentro de uma transação que vai gravar, chame {@link Agenda#lock} antes para a conta não mudar até a gravação.
+     */
     public Map<LocalDate, List<LocalTime>> freeSlots(UUID clinicId, int minutes, LocalDate from, LocalDate to) {
         expire(clinicId);
         Settings s = settings(clinicId);
@@ -61,22 +66,23 @@ public class Booking {
         LocalDateTime start = from.atStartOfDay();
         LocalDateTime end = to.plusDays(1).atStartOfDay();
         return BookingSlots.free(hours(clinicId), busy(clinicId, start, end, zone), minutes, s.stepMinutes(), from, to,
-            now.plusHours(s.minNoticeHours()), now.toLocalDate().plusDays(s.maxDays()));
+            now.plusHours(s.minNoticeHours()), now.toLocalDate().plusDays(s.maxDays()), s.maxSimultaneous());
     }
 
-    /** Sessões e bloqueios não cancelados + pedidos pendentes no período. */
+    /** Sessões e bloqueios não cancelados + pedidos pendentes (contam como sessão) no período. */
     private List<Busy> busy(UUID clinicId, LocalDateTime from, LocalDateTime to, ZoneId zone) {
         List<Busy> busy = new ArrayList<>();
         OffsetDateTime a = agenda.toInstant(from, zone);
         OffsetDateTime b = agenda.toInstant(to, zone);
         jdbc.query("""
-                SELECT starts_at, ends_at FROM appointments
+                SELECT starts_at, ends_at, kind = 'BLOCK' FROM appointments
                  WHERE clinic_id = ? AND status <> 'CANCELED' AND starts_at < ? AND ends_at > ?
                 UNION ALL
-                SELECT starts_at, ends_at FROM booking_requests
+                SELECT starts_at, ends_at, FALSE FROM booking_requests
                  WHERE clinic_id = ? AND status = 'PENDING' AND starts_at < ? AND ends_at > ?""",
             rs -> {
-                busy.add(new Busy(local(rs.getObject(1, OffsetDateTime.class), zone), local(rs.getObject(2, OffsetDateTime.class), zone)));
+                busy.add(new Busy(local(rs.getObject(1, OffsetDateTime.class), zone), local(rs.getObject(2, OffsetDateTime.class), zone),
+                    rs.getBoolean(3)));
             }, clinicId, b, a, clinicId, b, a);
         return busy;
     }

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.dao.DataIntegrityViolationException;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -81,45 +81,65 @@ public class Agenda {
             .stream().findFirst().orElseThrow(NoSuchElementException::new);
     }
 
+    /** Quantos atendimentos a clínica faz ao mesmo tempo (Clínica → Horário de atendimento). */
+    public int capacity(UUID clinicId) {
+        return jdbc.queryForObject("SELECT max_simultaneous FROM clinics WHERE id = ?", Integer.class, clinicId);
+    }
+
     /**
-     * Recusa com 409 e mensagem clara se o horário já está ocupado. O banco também impede (constraint de exclusão),
-     * o que cobre dois cliques simultâneos.
+     * Trava a agenda da clínica até o fim da transação: quem confere vaga e grava faz isso um de cada vez, para dois
+     * cliques ao mesmo tempo não passarem do limite. Outras clínicas não esperam.
      */
-    public void requireFree(UUID clinicId, Slot slot, UUID ignoreId) {
-        conflictWith(clinicId, slot, ignoreId).ifPresent(conflict -> {
-            throw new ConflictException("Horário ocupado: conflita com " + conflict);
+    public void lock(UUID clinicId) {
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", rs -> {}, "agenda:" + clinicId);
+    }
+
+    /** Recusa com 409 e mensagem clara se o horário não tem vaga (ou está bloqueado). Chamar dentro da transação. */
+    public void requireFree(UUID clinicId, Slot slot, UUID ignoreId, UUID patientId) {
+        conflictWith(clinicId, slot, ignoreId, patientId).ifPresent(conflict -> {
+            throw new ConflictException(conflict.startsWith("já tem") ? "Horário lotado: " + conflict
+                : "Horário ocupado: conflita com " + conflict);
         });
     }
 
-    /** Descreve o primeiro compromisso que ocupa o horário (ex.: "sessão de Maria em 07/01 às 08:00"). */
-    public Optional<String> conflictWith(UUID clinicId, Slot slot, UUID ignoreId) {
+    /**
+     * Por que o horário não serve, se não servir. {@code patientId} null = bloqueio, que não convive com nada; sessão
+     * convive com outras sessões até o limite de atendimentos simultâneos da clínica, mas nunca com outra sessão do
+     * mesmo paciente. Ex.: "sessão de Maria em 07/01 às 08:00" ou "já tem 2 atendimentos ao mesmo tempo (Maria, João)".
+     * Trava a agenda da clínica (ver {@link #lock}).
+     */
+    public Optional<String> conflictWith(UUID clinicId, Slot slot, UUID ignoreId, UUID patientId) {
+        boolean block = patientId == null;
+        lock(clinicId);
         ZoneId zone = zone(clinicId);
-        return jdbc.query("""
-                SELECT a.kind, a.starts_at, a.notes, p.full_name FROM appointments a
+        record Item(String kind, LocalDateTime start, LocalDateTime end, String notes, UUID patientId, String patient) {}
+        List<Item> items = jdbc.query("""
+                SELECT a.kind, a.starts_at, a.ends_at, a.notes, a.patient_id, p.full_name FROM appointments a
                   LEFT JOIN patients p ON p.id = a.patient_id AND p.clinic_id = a.clinic_id
                  WHERE a.clinic_id = ? AND a.status <> 'CANCELED' AND a.id <> coalesce(?::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
                    AND tstzrange(a.starts_at, a.ends_at) && tstzrange(?, ?)
-                 ORDER BY a.starts_at LIMIT 1""",
-            (rs, n) -> {
-                String when = rs.getObject("starts_at", OffsetDateTime.class).atZoneSameInstant(zone).format(WHEN);
-                return "SESSION".equals(rs.getString("kind"))
-                    ? "sessão de " + rs.getString("full_name") + " em " + when
-                    : "horário bloqueado em " + when + (rs.getString("notes") == null ? "" : " (" + rs.getString("notes") + ")");
-            },
-            clinicId, ignoreId, toInstant(slot.startsAt(), zone), toInstant(slot.endsAt(), zone))
-            .stream().findFirst();
+                 ORDER BY a.starts_at""",
+            (rs, n) -> new Item(rs.getString("kind"),
+                rs.getObject("starts_at", OffsetDateTime.class).atZoneSameInstant(zone).toLocalDateTime(),
+                rs.getObject("ends_at", OffsetDateTime.class).atZoneSameInstant(zone).toLocalDateTime(),
+                rs.getString("notes"), rs.getObject("patient_id", UUID.class), rs.getString("full_name")),
+            clinicId, ignoreId, toInstant(slot.startsAt(), zone), toInstant(slot.endsAt(), zone));
+        Optional<String> blocking = items.stream()
+            .filter(i -> block || "BLOCK".equals(i.kind()) || patientId.equals(i.patientId())).findFirst()
+            .map(i -> describe(i.kind(), i.start(), i.notes(), i.patient()));
+        if (blocking.isPresent()) return blocking;
+        int capacity = capacity(clinicId);
+        List<Occupancy.Busy> sessions = items.stream().map(i -> new Occupancy.Busy(i.start(), i.end())).toList();
+        if (Occupancy.fits(sessions, slot.startsAt(), slot.endsAt(), capacity)) return Optional.empty();
+        if (capacity == 1) return Optional.of(describe("SESSION", items.get(0).start(), null, items.get(0).patient()));
+        String names = items.stream().map(Item::patient).distinct().limit(4).collect(Collectors.joining(", "));
+        return Optional.of("já tem " + capacity + " atendimentos ao mesmo tempo (" + names + ")");
     }
 
-    /** Executa a escrita traduzindo a violação da constraint de exclusão (corrida entre dois cliques) em 409. */
-    public void write(Runnable update) {
-        try {
-            update.run();
-        } catch (DataIntegrityViolationException error) {
-            if (String.valueOf(error.getMessage()).contains("appointments_no_overlap")) {
-                throw new ConflictException("Horário ocupado: outra marcação foi feita neste horário agora há pouco");
-            }
-            throw error;
-        }
+    private static String describe(String kind, LocalDateTime start, String notes, String patient) {
+        String when = start.format(WHEN);
+        return "SESSION".equals(kind) ? "sessão de " + patient + " em " + when
+            : "horário bloqueado em " + when + (notes == null ? "" : " (" + notes + ")");
     }
 
     public void requireOwnPatient(UUID clinicId, UUID patientId) {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { acceptedMessage, declinedMessage, formatHour, hoursSummary, isoWeekdayOf, nextDays, requestSentMessage,
-  requestsEmpty, whenLabel } from '../src/booking.ts';
+  requestsEmpty, simultaneousHint, simultaneousLabel, whenLabel } from '../src/booking.ts';
 
 const h = (weekday: number, start: string, end: string) => ({ weekday, start, end });
 
@@ -49,4 +49,13 @@ test('Solicitações vazia só pede para configurar quando falta algo', () => {
   // Sem a configuração (carregando ou erro), não afirma que está desligado.
   assert.equal(requestsEmpty(null, false).configure, false);
   assert.equal(requestsEmpty(null, true).title, 'Nenhuma solicitação nos últimos 60 dias');
+});
+
+test('atendimentos no mesmo horário: rótulo e explicação', () => {
+  assert.equal(simultaneousLabel(1), '1 pessoa por vez');
+  assert.equal(simultaneousLabel(3), 'Até 3 pessoas ao mesmo tempo');
+  assert.match(simultaneousHint(1), /Cada horário recebe uma sessão/);
+  assert.match(simultaneousHint(2), /até 2 sessões no mesmo horário/);
+  assert.match(simultaneousHint(2), /esperando sua confirmação/);
+  assert.match(simultaneousHint(2), /bloqueado fecha para todos/);
 });

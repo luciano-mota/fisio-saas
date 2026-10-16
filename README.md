@@ -61,6 +61,13 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   que mudou (nome/WhatsApp) para a clínica decidir se atualiza; paciente antigo sem CPF é sugerido pelo WhatsApp;
   CPF novo cria o cadastro ao aceitar. Aceitar põe a sessão na agenda (usa o pacote do paciente se houver) e abre a
   mensagem pronta no WhatsApp; recusar guarda o motivo. O site nunca revela se um CPF é paciente da clínica.
+- **Atendimentos no mesmo horário** (Clínica → Horário de atendimento, padrão 1): a clínica define quantas pessoas
+  atende ao mesmo tempo (até 20). A agenda (sessão avulsa, série, remarcar, reativar), o aceite de Solicitações e o
+  site aceitam sessões no mesmo horário até esse limite — contando só quem está junto no mesmo instante e os pedidos
+  pendentes no site; todo pedido continua esperando a confirmação da clínica. Bloqueio fecha o horário para todos e o
+  mesmo paciente nunca fica em duas sessões ao mesmo tempo. Acima do limite: "Horário lotado: já tem 2 atendimentos
+  ao mesmo tempo (Maria, João)". A conferência e a gravação são feitas uma de cada vez por clínica (trava na
+  transação), para dois cliques simultâneos não passarem do limite.
 - **Financeiro**: pagamentos por Pix, dinheiro, débito ou crédito (até 12x), ligados a um pacote, a uma sessão
   avulsa ou "por conta". **Maquininhas** com taxa do débito, crédito à vista, crédito parcelado (2x a 12x), tarifa
   fixa e prazo; o servidor calcula taxa, líquido e os depósitos previstos (um por parcela, ou um só se antecipado).

@@ -134,6 +134,8 @@ export type PatientPackage = {
 export type OpeningHours = { weekday: number; start: string; end: string };
 export type BookingConfig = {
   enabled: boolean; minNoticeHours: number; maxDays: number; holdHours: number; stepMinutes: number; hours: OpeningHours[];
+  /** Atendimentos no mesmo horário (agenda e site). */
+  maxSimultaneous: number;
 };
 export type PatientMatch = { id: string; fullName: string; whatsapp: string | null; birthDate: string | null; active: boolean };
 export type BookingRequest = {

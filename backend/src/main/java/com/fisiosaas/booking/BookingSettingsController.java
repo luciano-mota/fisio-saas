@@ -31,7 +31,9 @@ public class BookingSettingsController {
         @NotNull @Min(1) @Max(180) Integer maxDays,
         @NotNull @Min(1) @Max(168) Integer holdHours,
         @NotNull Integer stepMinutes,
-        @NotNull @Size(max = 28) List<@Valid @NotNull Interval> hours) {}
+        @NotNull @Size(max = 28) List<@Valid @NotNull Interval> hours,
+        /** Atendimentos no mesmo horário (1 a 20). Opcional: sem o campo, mantém o atual. */
+        @Min(1) @Max(20) Integer maxSimultaneous) {}
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
@@ -71,8 +73,10 @@ public class BookingSettingsController {
         }
         jdbc.update("""
             UPDATE clinics SET booking_enabled = ?, booking_min_notice_hours = ?, booking_max_days = ?,
-                   booking_hold_hours = ?, booking_step_minutes = ?, updated_at = now() WHERE id = ?""",
-            body.enabled(), body.minNoticeHours(), body.maxDays(), body.holdHours(), body.stepMinutes(), clinicId);
+                   booking_hold_hours = ?, booking_step_minutes = ?, max_simultaneous = coalesce(?, max_simultaneous),
+                   updated_at = now() WHERE id = ?""",
+            body.enabled(), body.minNoticeHours(), body.maxDays(), body.holdHours(), body.stepMinutes(),
+            body.maxSimultaneous(), clinicId);
         jdbc.update("DELETE FROM clinic_hours WHERE clinic_id = ?", clinicId);
         for (Interval it : sorted) {
             jdbc.update("INSERT INTO clinic_hours(id, clinic_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?, ?)",
@@ -85,6 +89,7 @@ public class BookingSettingsController {
         Settings s = booking.settings(clinicId);
         List<Interval> hours = booking.hours(clinicId).stream()
             .map((Hours h) -> new Interval(h.weekday(), h.start(), h.end())).toList();
-        return new BookingConfig(s.enabled(), s.minNoticeHours(), s.maxDays(), s.holdHours(), s.stepMinutes(), hours);
+        return new BookingConfig(s.enabled(), s.minNoticeHours(), s.maxDays(), s.holdHours(), s.stepMinutes(), hours,
+            s.maxSimultaneous());
     }
 }
