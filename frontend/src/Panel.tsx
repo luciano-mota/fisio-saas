@@ -131,7 +131,7 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
           {tab === 'pacientes' && <PatientsTab owner={owner} patientId={sub} clinicName={name} />}
           {tab === 'financeiro' && <FinanceTab owner={owner} clinicName={name}
                                               section={(['devendo', 'pagamentos', 'receber', 'maquininhas', 'assinatura'].includes(sub ?? '') ? sub : 'resumo') as FinanceSection} />}
-          {tab === 'catalogo' && <CatalogTab owner={owner} section={sub === 'pacotes' ? 'pacotes' : 'servicos'} />}
+          {tab === 'catalogo' && <CatalogTab owner={owner} section={sub === 'pacotes' || sub === 'equipe' ? sub : 'servicos'} />}
           {tab === 'site' && profile && <SiteTab owner={owner} profile={profile} onSaved={saved} onLogoChange={setProfile} />}
           {tab === 'conta' && <AccountTab me={me} />}
           {tab === 'clinica' && profile && <ClinicTab owner={owner} profile={profile} onSaved={saved} />}

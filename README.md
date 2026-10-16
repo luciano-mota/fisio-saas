@@ -105,6 +105,12 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
   **"Pagamento realizado"**: fica pendente para a clínica e para a plataforma. Ao **confirmar**, vira receita da
   plataforma e despesa da clínica (resumo do mês), e o acesso é renovado até o próximo vencimento. Também: "Não recebi"
   (volta para a pagar, com motivo) e cancelar (com motivo). Nada é apagado.
+- **Equipe multiprofissional** (Serviços e pacotes → Equipe): fisioterapeutas, nutricionistas, psicólogos, fonos etc.,
+  com registro no conselho, apresentação e **foto opcional** (apagar a foto apaga de verdade). Cada serviço pode indicar
+  quem atende. No site, seção **"Nossa equipe"** com slides das fotos (opcional: a clínica liga/desliga a seção e as
+  fotos).
+- **Relatório de fluxo de caixa** com a logo (Financeiro → Resumo), pronto para imprimir/PDF; a plataforma tem o dela
+  em `/admin` → Financeiro → Relatório. O "Líquido" do mês desconta a mensalidade PhysioEvo paga.
 - **Pedidos do site em tempo real**: o painel confere a cada 20 s; pedido novo aparece com aviso, som (opcional),
   número no título da aba e notificação do sistema, sem recarregar a página.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do

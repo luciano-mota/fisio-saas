@@ -838,3 +838,8 @@ button.primary.big { min-height: 48px; font-size: 1.02rem; }
 .report-methods small { color: #666; }
 @media (max-width: 640px) { .report .receipt-paper { padding: 18px 12px; overflow-x: auto; } .report-table { min-width: 620px; } }
 @media print { .report .receipt-paper { padding: 0; } .report-table { font-size: 9.5pt; } }
+
+/* ---------- Equipe (painel) ---------- */
+.team-settings { display: grid; gap: 8px; margin-bottom: 12px; }
+.team-thumb { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; }
+span.avatar.team-thumb { display: grid; place-items: center; }

@@ -84,7 +84,16 @@ export type Faq = { id: string; question: string; answer: string; position: numb
 export type Service = {
   id: string; name: string; description: string | null; durationMinutes: number; price: number | null;
   showPrice: boolean; onlineBookingEnabled: boolean; active: boolean; displayOrder: number;
+  professionalId: string | null; professionalName: string | null; professionalProfession: string | null;
 };
+
+/** Profissional da equipe (fisioterapia, nutrição, psicologia…), com foto opcional. */
+export type Professional = {
+  id: string; fullName: string; profession: string; council: string | null; bio: string | null; showOnSite: boolean;
+  active: boolean; position: number; photoVersion: number | null;
+};
+export type TeamSettings = { showTeam: boolean; showPhotos: boolean };
+export type TeamMember = { id: string; fullName: string; profession: string; council: string | null; bio: string | null; photoVersion: number | null };
 
 export type SessionPackage = {
   id: string; serviceId: string; serviceName: string; name: string; sessionCount: number;
@@ -181,7 +190,7 @@ export type PublicPhoto = { id: string; caption: string | null; width: number; h
 export type PublicPackage = { id: string; name: string; sessionCount: number; price: number | null; validityDays: number | null };
 export type PublicService = {
   id: string; name: string; description: string | null; durationMinutes: number; price: number | null;
-  onlineBooking: boolean; packages: PublicPackage[];
+  onlineBooking: boolean; packages: PublicPackage[]; professional: TeamMember | null;
 };
 export type PublicClinic = {
   slug: string; displayName: string; professionalName: string | null; crefito: string | null;
@@ -190,6 +199,7 @@ export type PublicClinic = {
     style: string; fonts: string; template: string; mood: string; headline: string | null; education: string | null; hours: string | null;
     serviceArea: string | null; showMap: boolean; cover: PublicPhoto | null; gallery: PublicPhoto[];
     testimonials: { authorName: string; text: string }[]; faqs: { question: string; answer: string }[];
+    team: TeamMember[];
   };
   services: PublicService[];
   booking: { enabled: boolean; hours: OpeningHours[]; pix: boolean; maxDays: number };
@@ -286,6 +296,16 @@ export async function uploadPhoto(jpeg: Blob, kind: 'COVER' | 'GALLERY', caption
     method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': await csrf() }, body: form
   });
   return handle<SitePhoto>(res);
+}
+
+/** Foto (opcional) de um profissional da equipe, já reduzida no navegador. */
+export async function uploadProfessionalPhoto(id: string, jpeg: Blob): Promise<Professional> {
+  const form = new FormData();
+  form.append('file', jpeg, 'foto.jpg');
+  const res = await fetch(`/api/v1/professionals/${id}/photo`, {
+    method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': await csrf() }, body: form
+  });
+  return handle<Professional>(res);
 }
 
 /** Comprovante do Pix enviado pelo paciente (sem login: vale o token devolvido no pedido). */

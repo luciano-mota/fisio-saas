@@ -1,5 +1,6 @@
 package com.fisiosaas.catalog;
 
+import com.fisiosaas.clinic.ProfessionalController;
 import com.fisiosaas.identity.CurrentClinic;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -31,16 +32,25 @@ public class ServiceController {
         Boolean showPrice,
         Boolean onlineBookingEnabled,
         Boolean active,
-        Integer displayOrder) {}
+        Integer displayOrder,
+        /** Quem atende (opcional), da mesma clínica. */
+        UUID professionalId) {}
 
     public record ServiceView(UUID id, String name, String description, int durationMinutes,
                               BigDecimal price, boolean showPrice, boolean onlineBookingEnabled,
-                              boolean active, int displayOrder) {}
+                              boolean active, int displayOrder, UUID professionalId, String professionalName,
+                              String professionalProfession) {}
 
     static final RowMapper<ServiceView> MAPPER = (rs, row) -> new ServiceView(
         rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("description"),
         rs.getInt("duration_minutes"), rs.getBigDecimal("price"), rs.getBoolean("show_price"),
-        rs.getBoolean("online_booking_enabled"), rs.getBoolean("active"), rs.getInt("display_order"));
+        rs.getBoolean("online_booking_enabled"), rs.getBoolean("active"), rs.getInt("display_order"),
+        rs.getObject("professional_id", UUID.class), rs.getString("professional_name"), rs.getString("professional_profession"));
+
+    private static final String SELECT = """
+        SELECT s.*, p.full_name AS professional_name, p.profession AS professional_profession
+          FROM services s LEFT JOIN professionals p ON p.id = s.professional_id AND p.clinic_id = s.clinic_id
+        """;
 
     private final JdbcTemplate jdbc;
     private final CurrentClinic current;
@@ -52,7 +62,7 @@ public class ServiceController {
 
     @GetMapping
     public List<ServiceView> list(Authentication auth) {
-        return jdbc.query("SELECT * FROM services WHERE clinic_id = ? ORDER BY active DESC, display_order, name",
+        return jdbc.query(SELECT + "WHERE s.clinic_id = ? ORDER BY s.active DESC, s.display_order, s.name",
             MAPPER, current.require(auth).clinicId());
     }
 
@@ -60,15 +70,16 @@ public class ServiceController {
     @ResponseStatus(HttpStatus.CREATED)
     public ServiceView create(Authentication auth, @Valid @RequestBody ServiceRequest body) {
         UUID clinicId = current.requireOwner(auth).clinicId();
+        if (body.professionalId() != null) ProfessionalController.requireOwn(jdbc, clinicId, body.professionalId());
         UUID id = UUID.randomUUID();
         jdbc.update("""
             INSERT INTO services(id, clinic_id, name, description, duration_minutes, price, show_price,
-                                 online_booking_enabled, active, display_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                 online_booking_enabled, active, display_order, professional_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             id, clinicId, body.name().trim(), blankToNull(body.description()),
             body.durationMinutes() == null ? 50 : body.durationMinutes(), body.price(),
             !Boolean.FALSE.equals(body.showPrice()), !Boolean.FALSE.equals(body.onlineBookingEnabled()),
-            !Boolean.FALSE.equals(body.active()), body.displayOrder() == null ? 0 : body.displayOrder());
+            !Boolean.FALSE.equals(body.active()), body.displayOrder() == null ? 0 : body.displayOrder(), body.professionalId());
         return find(clinicId, id);
     }
 
@@ -76,16 +87,17 @@ public class ServiceController {
     public ServiceView update(Authentication auth, @PathVariable UUID id, @Valid @RequestBody ServiceRequest body) {
         UUID clinicId = current.requireOwner(auth).clinicId();
         ServiceView old = find(clinicId, id);
+        if (body.professionalId() != null) ProfessionalController.requireOwn(jdbc, clinicId, body.professionalId());
         jdbc.update("""
             UPDATE services SET name = ?, description = ?, duration_minutes = ?, price = ?, show_price = ?,
-                   online_booking_enabled = ?, active = ?, display_order = ?, updated_at = now()
+                   online_booking_enabled = ?, active = ?, display_order = ?, professional_id = ?, updated_at = now()
              WHERE id = ? AND clinic_id = ?""",
             body.name().trim(), blankToNull(body.description()),
             body.durationMinutes() == null ? old.durationMinutes() : body.durationMinutes(), body.price(),
             body.showPrice() == null ? old.showPrice() : body.showPrice(),
             body.onlineBookingEnabled() == null ? old.onlineBookingEnabled() : body.onlineBookingEnabled(),
             body.active() == null ? old.active() : body.active(),
-            body.displayOrder() == null ? old.displayOrder() : body.displayOrder(), id, clinicId);
+            body.displayOrder() == null ? old.displayOrder() : body.displayOrder(), body.professionalId(), id, clinicId);
         return find(clinicId, id);
     }
 
@@ -102,7 +114,7 @@ public class ServiceController {
     }
 
     ServiceView find(UUID clinicId, UUID id) {
-        return jdbc.query("SELECT * FROM services WHERE id = ? AND clinic_id = ?", MAPPER, id, clinicId)
+        return jdbc.query(SELECT + "WHERE s.id = ? AND s.clinic_id = ?", MAPPER, id, clinicId)
             .stream().findFirst().orElseThrow(NoSuchElementException::new);
     }
 
