@@ -4,6 +4,7 @@ import { api, whatsappLink, type CardMachine, type Debtor, type FinanceSummary, 
 import { today } from './dates';
 import { addMonths, brl, chargeMessage, dateBr, methodLabel, monthLabel, monthRange, moneyInput, parseMoney } from './finance';
 import { PaymentSheet } from './PaymentSheet';
+import { CashFlowSheet } from './CashFlowReport';
 import { SubscriptionSection } from './Subscription';
 import { navigate } from './router';
 import { Avatar, EmptyState, Icon, Menu, PageHeader, Sheet, useUi } from './ui';
@@ -75,13 +76,18 @@ function SummarySection({ onSection }: { onSection: (s: FinanceSection) => void 
   const [month, setMonth] = useState(currentMonth());
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [error, setError] = useState('');
+  const [report, setReport] = useState(false);
   useEffect(() => {
     api<FinanceSummary>(`/api/v1/finance/summary?month=${month}`).then(setSummary).catch(e => setError((e as Error).message));
   }, [month]);
 
   return (
     <div className="stack">
-      <MonthNav month={month} setMonth={setMonth} />
+      <div className="summary-bar">
+        <MonthNav month={month} setMonth={setMonth} />
+        <button onClick={() => setReport(true)}><Icon name="money" size={18} /> Relatório de fluxo de caixa</button>
+      </div>
+      {report && <CashFlowSheet path="/painel/relatorio/fluxo-de-caixa" onClose={() => setReport(false)} />}
       {error && <p className="error-box">{error}</p>}
       {summary && (
         <>
@@ -89,7 +95,10 @@ function SummarySection({ onSection }: { onSection: (s: FinanceSection) => void 
             <div className="money-stat main"><span>Recebido no mês</span><strong>{brl(summary.received)}</strong>
               <small>{summary.payments} {summary.payments === 1 ? 'pagamento' : 'pagamentos'}</small></div>
             <div className="money-stat"><span>Taxas de cartão</span><strong>{brl(summary.fees)}</strong></div>
-            <div className="money-stat"><span>Líquido</span><strong>{brl(summary.net)}</strong></div>
+            <div className="money-stat"><span>Líquido</span><strong>{brl(summary.result)}</strong>
+              {(summary.fees > 0 || summary.expenses > 0) && (
+                <small>{[summary.fees > 0 && `taxas ${brl(summary.fees)}`, summary.expenses > 0 && `assinatura ${brl(summary.expenses)}`]
+                  .filter(Boolean).join(' · ')} descontadas</small>)}</div>
           </div>
           <div className="money-stats two">
             <button className="money-stat link" onClick={() => onSection('devendo')}>
@@ -104,8 +113,10 @@ function SummarySection({ onSection }: { onSection: (s: FinanceSection) => void 
               <button className="money-stat link" onClick={() => onSection('assinatura')}>
                 <span>Despesa: assinatura PhysioEvo</span><strong>{brl(summary.expenses)}</strong>
                 <small>Paga no mês <Icon name="right" size={14} /></small></button>
-              <div className="money-stat"><span>Resultado (líquido − despesas)</span><strong>{brl(summary.net - summary.expenses)}</strong>
-                {summary.expensesPending > 0 && <small>{brl(summary.expensesPending)} aguardando confirmação</small>}</div>
+              {summary.expensesPending > 0 && (
+                <button className="money-stat link" onClick={() => onSection('assinatura')}>
+                  <span>Aguardando confirmação</span><strong>{brl(summary.expensesPending)}</strong>
+                  <small>Pagamento informado à PhysioEvo</small></button>)}
             </div>
           )}
           {summary.byMethod.length > 0 && (
