@@ -732,3 +732,18 @@ label.inline { max-width: 160px; }
 .admin-history li { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
 .admin-history p { margin: 4px 0 0; }
 @media (max-width: 560px) { .admin-email { display: none; } }
+
+/* ---------- Pedido novo (aviso no canto) ---------- */
+.request-alert { position: fixed; z-index: 60; right: 20px; bottom: 20px; width: min(380px, calc(100vw - 32px));
+  display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 16px; background: #fff;
+  border: 1px solid var(--border); box-shadow: 0 18px 40px -16px rgba(15, 23, 42, .35); animation: request-in .25s ease; }
+.request-alert .grow { display: grid; gap: 4px; min-width: 0; }
+.request-alert-icon { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+  background: var(--color-primary); color: var(--color-on-primary); animation: request-ring 1s ease 2; }
+.request-alert-actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.request-alert-actions button.primary { min-height: 36px; padding: 6px 14px; }
+@media (max-width: 760px) { .request-alert { right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); } }
+@keyframes request-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes request-ring { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+@media (prefers-reduced-motion: reduce) { .request-alert, .request-alert-icon { animation: none; } }
+.alert-settings { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; margin: 2px 0 12px; }

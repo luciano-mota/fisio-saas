@@ -3,6 +3,7 @@ import { api, money, whatsappLink, type BookingRequest } from './api';
 import { acceptedMessage, declinedMessage, whenLabel } from './booking';
 import { formatCpf, formatPhone } from './format';
 import { navigate } from './router';
+import { AlertSettings } from './RequestWatch';
 import { EmptyState, Icon, PageHeader, Sheet, useUi } from './ui';
 
 const STATUS: Record<BookingRequest['status'], string> = {
@@ -13,7 +14,7 @@ const STATUS: Record<BookingRequest['status'], string> = {
  * Pedidos de agendamento feitos pelo site. O CPF acha o paciente já cadastrado; sem cadastro, ele é criado ao
  * aceitar. Depois de responder, o painel oferece a mensagem pronta para o WhatsApp do paciente.
  */
-export function RequestsTab({ owner, onChanged }: { owner: boolean; onChanged: () => void }) {
+export function RequestsTab({ owner, onChanged, version = 0 }: { owner: boolean; onChanged: () => void; version?: number }) {
   const [items, setItems] = useState<BookingRequest[] | null>(null);
   const [all, setAll] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +22,8 @@ export function RequestsTab({ owner, onChanged }: { owner: boolean; onChanged: (
   const [declining, setDeclining] = useState<BookingRequest | null>(null);
 
   const load = useCallback(() => api<BookingRequest[]>(`/api/v1/booking-requests${all ? '?status=ALL' : ''}`).then(setItems), [all]);
-  useEffect(() => { load().catch(e => setError((e as Error).message)); }, [load]);
+  // Recarrega sozinha quando chega (ou sai) pedido, sem precisar atualizar a página.
+  useEffect(() => { load().catch(e => setError((e as Error).message)); }, [load, version]);
   const done = async () => { await load(); onChanged(); };
 
   return (
@@ -29,6 +31,7 @@ export function RequestsTab({ owner, onChanged }: { owner: boolean; onChanged: (
       <PageHeader title="Solicitações" subtitle="Pedidos de horário feitos pelo seu site. A sessão só entra na agenda quando você aceita." />
       <label className="switch small"><input type="checkbox" checked={all} onChange={e => setAll(e.target.checked)} />
         <span>Mostrar respondidas (últimos 60 dias)</span></label>
+      <AlertSettings />
       {error && <p className="error-box" role="alert">{error}</p>}
       {items?.length === 0 && (
         <EmptyState icon="bell" title="Nenhuma solicitação aguardando"
