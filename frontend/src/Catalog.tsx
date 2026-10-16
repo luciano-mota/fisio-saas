@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { api, money, type Service, type SessionPackage } from './api';
+import { api, money, type Professional, type Service, type SessionPackage } from './api';
 import { navigate } from './router';
 import { SiteIcon } from './SiteIcons';
 import { serviceIcon } from './siteStyle';
+import { TeamList } from './Team';
 import { EmptyState, Icon, Menu, PageHeader, Sheet, useUi } from './ui';
 
 export function parsePrice(text: string): number | null {
@@ -18,17 +19,21 @@ function priceText(value: number | null): string {
 }
 
 /** Serviços e pacotes de sessões, numa tela só ("Catálogo"). */
-export function CatalogTab({ owner, section }: { owner: boolean; section: 'servicos' | 'pacotes' }) {
+export function CatalogTab({ owner, section }: { owner: boolean; section: 'servicos' | 'pacotes' | 'equipe' }) {
   return (
     <section>
-      <PageHeader title="Serviços e pacotes" subtitle="O que você oferece. Aparece no seu site; o preço é opcional." />
+      <PageHeader title="Serviços e pacotes" subtitle="O que você oferece e quem atende. Aparece no seu site; o preço é opcional." />
       <div className="segmented wide" role="tablist" aria-label="Catálogo">
         <button role="tab" aria-selected={section === 'servicos'} className={section === 'servicos' ? 'active' : ''}
                 onClick={() => navigate('/painel/catalogo')}>Serviços</button>
         <button role="tab" aria-selected={section === 'pacotes'} className={section === 'pacotes' ? 'active' : ''}
                 onClick={() => navigate('/painel/catalogo/pacotes')}>Pacotes</button>
+        <button role="tab" aria-selected={section === 'equipe'} className={section === 'equipe' ? 'active' : ''}
+                onClick={() => navigate('/painel/catalogo/equipe')}>Equipe</button>
       </div>
-      {section === 'servicos' ? <ServicesList owner={owner} /> : <PackagesList owner={owner} />}
+      {section === 'servicos' && <ServicesList owner={owner} />}
+      {section === 'pacotes' && <PackagesList owner={owner} />}
+      {section === 'equipe' && <TeamList owner={owner} />}
     </section>
   );
 }
@@ -37,10 +42,10 @@ export function CatalogTab({ owner, section }: { owner: boolean; section: 'servi
 
 type ServiceForm = {
   id?: string; name: string; description: string; durationMinutes: string; price: string;
-  showPrice: boolean; onlineBookingEnabled: boolean;
+  showPrice: boolean; onlineBookingEnabled: boolean; professionalId: string;
 };
 const EMPTY_SERVICE: ServiceForm = {
-  name: '', description: '', durationMinutes: '50', price: '', showPrice: true, onlineBookingEnabled: true
+  name: '', description: '', durationMinutes: '50', price: '', showPrice: true, onlineBookingEnabled: true, professionalId: ''
 };
 
 function ServicesList({ owner }: { owner: boolean }) {
@@ -48,8 +53,10 @@ function ServicesList({ owner }: { owner: boolean }) {
   const [items, setItems] = useState<Service[] | null>(null);
   const [form, setForm] = useState<ServiceForm | null>(null);
   const [error, setError] = useState('');
+  const [team, setTeam] = useState<Professional[]>([]);
   const load = useCallback(() => api<Service[]>('/api/v1/services').then(setItems), []);
   useEffect(() => { load().catch(e => setError((e as Error).message)); }, [load]);
+  useEffect(() => { api<Professional[]>('/api/v1/professionals').then(list => setTeam(list.filter(p => p.active))).catch(() => undefined); }, []);
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -59,7 +66,7 @@ function ServicesList({ owner }: { owner: boolean }) {
       const payload = {
         name: form.name, description: form.description, durationMinutes: Number(form.durationMinutes),
         price: parsePrice(form.price), showPrice: form.showPrice, onlineBookingEnabled: form.onlineBookingEnabled,
-        active: true
+        active: true, professionalId: form.professionalId || null
       };
       if (form.id) await api(`/api/v1/services/${form.id}`, 'PUT', payload);
       else await api('/api/v1/services', 'POST', payload);
@@ -81,7 +88,8 @@ function ServicesList({ owner }: { owner: boolean }) {
     setError('');
     setForm({
       id: s.id, name: s.name, description: s.description ?? '', durationMinutes: String(s.durationMinutes),
-      price: priceText(s.price), showPrice: s.showPrice, onlineBookingEnabled: s.onlineBookingEnabled
+      price: priceText(s.price), showPrice: s.showPrice, onlineBookingEnabled: s.onlineBookingEnabled,
+      professionalId: s.professionalId ?? ''
     });
   };
 
@@ -111,6 +119,7 @@ function ServicesList({ owner }: { owner: boolean }) {
                 <span>{s.price === null ? 'Sem preço' : money(s.price)}</span>
                 {s.price !== null && !s.showPrice && <span className="pill">oculto no site</span>}
                 {!s.onlineBookingEnabled && <span className="pill">sem agendamento online</span>}
+                {s.professionalName && <span><Icon name="users" size={15} /> {s.professionalName}{s.professionalProfession ? ` · ${s.professionalProfession}` : ''}</span>}
               </div>
             </div>
             {owner && s.active && (
@@ -137,6 +146,13 @@ function ServicesList({ owner }: { owner: boolean }) {
               <label>Preço da sessão (opcional)<input inputMode="decimal" placeholder="Ex.: 90,00" value={form.price}
                                                       onChange={e => setForm({ ...form, price: e.target.value })} /></label>
             </div>
+            {team.length > 0 && (
+              <label>Quem atende (opcional)
+                <select value={form.professionalId} onChange={e => setForm({ ...form, professionalId: e.target.value })}>
+                  <option value="">Não indicar</option>
+                  {team.map(p => <option key={p.id} value={p.id}>{p.fullName} · {p.profession}</option>)}
+                </select></label>
+            )}
             <label className="switch"><input type="checkbox" checked={form.showPrice}
                                              onChange={e => setForm({ ...form, showPrice: e.target.checked })} />
               <span>Mostrar preço na página pública</span></label>

@@ -2,6 +2,7 @@ package com.fisiosaas.publicsite;
 
 import com.fisiosaas.clinic.FaqController;
 import com.fisiosaas.clinic.PhotoController;
+import com.fisiosaas.clinic.ProfessionalController;
 import com.fisiosaas.clinic.PhotoController.PhotoView;
 import com.fisiosaas.clinic.TestimonialController;
 import java.math.BigDecimal;
@@ -30,8 +31,13 @@ public class PublicCatalogController {
 
     public record PublicPackage(UUID id, String name, int sessionCount, BigDecimal price, Integer validityDays) {}
 
+    /** {@code professional}: quem atende (opcional), ex.: "Dra. Paula · Nutricionista". */
     public record PublicService(UUID id, String name, String description, int durationMinutes,
-                                BigDecimal price, boolean onlineBooking, List<PublicPackage> packages) {}
+                                BigDecimal price, boolean onlineBooking, List<PublicPackage> packages,
+                                TeamMember professional) {}
+
+    /** Profissional da equipe no site. {@code photoVersion} só vem se a clínica mostra as fotos e há foto. */
+    public record TeamMember(UUID id, String fullName, String profession, String council, String bio, Long photoVersion) {}
 
     public record PublicClinic(String slug, String displayName, String professionalName, String crefito,
                                String whatsapp, String address, String about, Theme theme,
@@ -49,7 +55,7 @@ public class PublicCatalogController {
      */
     public record Site(String style, String fonts, String template, String mood, String headline, String education, String hours,
                        String serviceArea, boolean showMap, Photo cover, List<Photo> gallery,
-                       List<Testimonial> testimonials, List<Faq> faqs) {}
+                       List<Testimonial> testimonials, List<Faq> faqs, List<TeamMember> team) {}
 
     public record Photo(UUID id, String caption, int width, int height) {}
 
@@ -90,14 +96,19 @@ public class PublicCatalogController {
         UUID clinicId = clinic.id();
 
         List<PublicService> services = jdbc.query("""
-                SELECT * FROM services WHERE clinic_id = ? AND active ORDER BY display_order, name""",
+                SELECT s.*, p.full_name AS pro_name, p.profession AS pro_profession, p.council AS pro_council
+                  FROM services s
+                  LEFT JOIN professionals p ON p.id = s.professional_id AND p.clinic_id = s.clinic_id AND p.active
+                 WHERE s.clinic_id = ? AND s.active ORDER BY s.display_order, s.name""",
             (rs, n) -> {
                 UUID serviceId = rs.getObject("id", UUID.class);
                 return new PublicService(serviceId, rs.getString("name"), rs.getString("description"),
                     rs.getInt("duration_minutes"),
                     rs.getBoolean("show_price") ? rs.getBigDecimal("price") : null,
                     rs.getBoolean("online_booking_enabled"),
-                    packages(clinicId, serviceId));
+                    packages(clinicId, serviceId),
+                    rs.getString("pro_name") == null ? null : new TeamMember(rs.getObject("professional_id", UUID.class),
+                        rs.getString("pro_name"), rs.getString("pro_profession"), rs.getString("pro_council"), null, null));
             }, clinicId);
 
         Content content = clinic.content();
@@ -110,8 +121,12 @@ public class PublicCatalogController {
             ? TestimonialController.list(jdbc, clinicId).stream().map(t -> new Testimonial(t.authorName(), t.text())).toList()
             : List.of();
         List<Faq> faqs = FaqController.list(jdbc, clinicId).stream().map(f -> new Faq(f.question(), f.answer())).toList();
+        ProfessionalController.TeamSettings teamSettings = ProfessionalController.settings(jdbc, clinicId);
+        List<TeamMember> team = !teamSettings.showTeam() ? List.of() : ProfessionalController.forSite(jdbc, clinicId).stream()
+            .map(p -> new TeamMember(p.id(), p.fullName(), p.profession(), p.council(), p.bio(),
+                teamSettings.showPhotos() ? p.photoVersion() : null)).toList();
         Site site = new Site(content.style(), content.fonts(), content.template(), content.mood(), content.headline(), content.education(), content.hours(),
-            content.serviceArea(), content.showMap(), cover, gallery, testimonials, faqs);
+            content.serviceArea(), content.showMap(), cover, gallery, testimonials, faqs, team);
 
         PublicClinic base = clinic.base();
         List<OpeningHours> hours = jdbc.query("""

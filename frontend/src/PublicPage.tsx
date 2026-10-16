@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { logoUrl, whatsappLink, type PublicClinic, type PublicPhoto, type PublicService } from './api';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { logoUrl, whatsappLink, type PublicClinic, type PublicPhoto, type PublicService, type TeamMember } from './api';
 import { themeVariables } from './color';
 import { formatPhone } from './format';
 import { SiteIcon } from './SiteIcons';
@@ -249,6 +249,18 @@ export function ClinicSite({ clinic }: { clinic: PublicClinic }) {
           </section>
         )}
 
+        {site.team.length > 0 && (
+          <section className={tone('equipe')} id="equipe" aria-labelledby="titulo-equipe">
+            <div className="wrap">
+              <div className="section-head">
+                <p className="eyebrow">Nossa equipe</p>
+                <h2 id="titulo-equipe">{site.team.length === 1 ? 'Quem atende' : 'Profissionais que cuidam de você'}</h2>
+              </div>
+              <TeamSlider slug={clinic.slug} team={site.team} />
+            </div>
+          </section>
+        )}
+
         {site.gallery.length > 0 && (
           <section className={tone('galeria')} aria-labelledby="titulo-galeria">
             <div className="wrap">
@@ -466,6 +478,8 @@ function ServiceItem({ service, link, index }: { service: PublicService; link: S
       <span className="service-icon"><SiteIcon name={serviceIcon(service.name, service.description)} size={26} /></span>
       <div className="service-body">
         <h3>{service.name}</h3>
+        {service.professional && (
+          <p className="service-pro">Com {service.professional.fullName} · {service.professional.profession}</p>)}
         {service.description && <p>{service.description}</p>}
         <p className="service-meta">
           <span>{service.durationMinutes} min por sessão</span>
@@ -475,5 +489,65 @@ function ServiceItem({ service, link, index }: { service: PublicService; link: S
         </p>
       </div>
     </li>
+  );
+}
+
+/**
+ * Equipe no site: com fotos, vira slides (passam sozinhos, com setas, pontos e deslize no celular); sem fotos, cartões.
+ * Respeita "reduzir movimento" e pausa quando a pessoa está interagindo.
+ */
+function TeamSlider({ slug, team }: { slug: string; team: TeamMember[] }) {
+  const track = useRef<HTMLUListElement>(null);
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const withPhotos = team.some(m => m.photoVersion);
+  const count = team.length;
+  const go = (i: number) => {
+    const el = track.current;
+    if (!el) return;
+    const next = (i + count) % count;
+    const card = el.children[next] as HTMLElement | undefined;
+    if (card) el.scrollTo({ left: card.offsetLeft - el.offsetLeft, behavior: 'smooth' });
+    setIndex(next);
+  };
+  useEffect(() => {
+    if (!withPhotos || paused || count < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = setInterval(() => go(index + 1), 4500);
+    return () => clearInterval(timer);
+  }, [withPhotos, paused, index, count]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onScroll = () => {
+    const el = track.current;
+    if (!el || !el.children.length) return;
+    const width = (el.children[0] as HTMLElement).offsetWidth || 1;
+    setIndex(Math.round(el.scrollLeft / width));
+  };
+  return (
+    <div className={withPhotos ? 'team team-slides' : 'team'} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
+         onFocus={() => setPaused(true)} onBlur={() => setPaused(false)} onTouchStart={() => setPaused(true)}>
+      <ul className="team-track" ref={track} onScroll={withPhotos ? onScroll : undefined} aria-label="Profissionais">
+        {team.map(m => (
+          <li key={m.id} className="team-card">
+            {m.photoVersion
+              ? <img src={`/api/v1/public/clinics/${slug}/professionals/${m.id}/photo?v=${m.photoVersion}`} alt={`Foto de ${m.fullName}`}
+                     loading="lazy" className="team-photo" />
+              : <span className="team-initials" aria-hidden="true">{initials(m.fullName)}</span>}
+            <div className="team-info">
+              <h3>{m.fullName}</h3>
+              <p className="team-role">{m.profession}{m.council ? ` · ${m.council}` : ''}</p>
+              {m.bio && <p className="team-bio">{m.bio}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {withPhotos && count > 1 && (
+        <div className="team-nav">
+          <button type="button" className="team-arrow" aria-label="Anterior" onClick={() => go(index - 1)}><SiteIcon name="arrow" size={18} /></button>
+          <div className="team-dots">{team.map((m, i) => (
+            <button key={m.id} type="button" aria-label={`Ver ${m.fullName}`} aria-current={i === index} className={i === index ? 'on' : ''}
+                    onClick={() => go(i)} />))}</div>
+          <button type="button" className="team-arrow next" aria-label="Próximo" onClick={() => go(index + 1)}><SiteIcon name="arrow" size={18} /></button>
+        </div>
+      )}
+    </div>
   );
 }

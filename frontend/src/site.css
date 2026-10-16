@@ -394,3 +394,39 @@
 .booking-upload { position: relative; overflow: hidden; }
 .booking-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .booking-upload.busy { opacity: .7; }
+
+/* ---------- Nossa equipe ---------- */
+.service-pro { font-size: .9rem; font-weight: 600; color: var(--brand); }
+.section.band .service-pro { color: var(--on-band); }
+.team { position: relative; }
+.team-track { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.team-card { display: grid; gap: 12px; align-content: start; padding: 18px; border-radius: var(--r); background: var(--paper);
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent); text-align: center; justify-items: center; }
+.section.alt .team-card { background: var(--paper); }
+.section.band .team-card { background: color-mix(in srgb, var(--on-band) 8%, transparent); border-color: color-mix(in srgb, var(--on-band) 20%, transparent); }
+.team-initials { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; font-size: 1.8rem; font-weight: 700;
+  background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); }
+.team-info { display: grid; gap: 4px; }
+.team-info h3 { font-size: 1.15rem; }
+.team-role { font-size: .9rem; font-weight: 600; color: var(--brand); }
+.section.band .team-role { color: var(--on-band); }
+.team-bio { font-size: .92rem; opacity: .85; line-height: 1.5; }
+/* Slides (quando há fotos): faixa que desliza com o dedo e passa sozinha. */
+.team-slides .team-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; gap: 16px;
+  padding-bottom: 4px; scrollbar-width: none; }
+.team-slides .team-track::-webkit-scrollbar { display: none; }
+.team-slides .team-card { flex: 0 0 min(300px, 82%); scroll-snap-align: start; padding: 0 0 18px; overflow: hidden; }
+.team-slides .team-photo { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.team-slides .team-initials { margin-top: 18px; width: 100%; max-width: 160px; height: auto; aspect-ratio: 1; }
+.team-slides .team-info { padding: 0 16px; }
+.team-nav { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; }
+.team-arrow { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent); background: transparent; color: inherit; transform: scaleX(-1); }
+.team-arrow.next { transform: none; }
+.team-dots { display: flex; gap: 8px; }
+.team-dots button { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0; cursor: pointer;
+  background: color-mix(in srgb, currentColor 25%, transparent); }
+.team-dots button.on { background: var(--brand); width: 22px; border-radius: 99px; }
+.section.band .team-dots button.on { background: var(--on-band); }
+@media (min-width: 860px) { .team-slides .team-card { flex-basis: calc((100% - 32px) / 3); } }
+@media (prefers-reduced-motion: reduce) { .team-slides .team-track { scroll-behavior: auto; } }
