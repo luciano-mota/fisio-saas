@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, signOut, type AdminClinic, type AdminClinicDetail, type AdminMe, type AdminOverview, type EffectiveStatus } from './api';
 import { dateBrFull, inDays, STATUS_LABEL } from './access';
+import { AdminFinance, ClinicBilling } from './AdminFinance';
 import { AdminNotices } from './AdminNotices';
 import { formatPhone } from './format';
 import { navigate, usePath } from './router';
@@ -29,11 +30,12 @@ export function AdminPanel({ me, onLogout }: { me: AdminMe; onLogout: () => void
   return <UiProvider><AdminHome me={me} onLogout={onLogout} /></UiProvider>;
 }
 
-const SECTIONS = [{ path: '/admin', label: 'Clínicas', icon: 'building' }, { path: '/admin/avisos', label: 'Avisos', icon: 'bell' }] as const;
+const SECTIONS = [{ path: '/admin', label: 'Clínicas', icon: 'building' }, { path: '/admin/financeiro', label: 'Financeiro', icon: 'money' },
+  { path: '/admin/avisos', label: 'Avisos', icon: 'bell' }] as const;
 
 function AdminHome({ me, onLogout }: { me: AdminMe; onLogout: () => void }) {
   const path = usePath();
-  const section = path.startsWith('/admin/avisos') ? '/admin/avisos' : '/admin';
+  const section = SECTIONS.find(s => s.path !== '/admin' && path.startsWith(s.path))?.path ?? '/admin';
   return (
     <div className="admin">
       <header className="admin-top">
@@ -51,7 +53,7 @@ function AdminHome({ me, onLogout }: { me: AdminMe; onLogout: () => void }) {
           <Icon name="logout" size={18} /> Sair</button>
       </header>
       <main className="admin-main">
-        {section === '/admin/avisos' ? <AdminNotices /> : <AdminClinics />}
+        {section === '/admin/avisos' ? <AdminNotices /> : section === '/admin/financeiro' ? <AdminFinance /> : <AdminClinics />}
       </main>
     </div>
   );
@@ -206,6 +208,8 @@ function ClinicSheet({ id, onClose, onChanged }: { id: string; onClose: () => vo
             <button className={action === 'SUSPEND' || action === 'BLOCK' ? 'primary danger-fill' : 'primary'} disabled={busy}>
               {busy ? 'Salvando…' : `Confirmar: ${spec.label.toLowerCase()}`}</button>
           </form>
+
+          <ClinicBilling clinicId={c.id} />
 
           <section>
             <h3>Histórico</h3>

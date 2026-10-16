@@ -99,6 +99,12 @@ perguntas frequentes. Preço e pagamento aparecem só na hora de agendar. Planej
 - **Avisos da plataforma** (`/admin/avisos`): a equipe publica mensagens para todas as clínicas ou para uma, como
   faixa no topo (até dispensar) ou janela (até "Entendi"), com nível, período e prévia; vê quantos leram. Nada é
   apagado (desativa).
+- **Financeiro dos assinantes** (`/admin/financeiro`): plano com valor por clínica (promoções) e dia de vencimento;
+  "Gerar mensalidades do mês"; Pix da PhysioEvo configurado no próprio admin ("Meu Pix"). A clínica vê a mensalidade
+  com **QR Code Pix** (aviso no painel nos dias 7, 3, 1 e no vencimento, e em Financeiro → Assinatura) e toca em
+  **"Pagamento realizado"**: fica pendente para a clínica e para a plataforma. Ao **confirmar**, vira receita da
+  plataforma e despesa da clínica (resumo do mês), e o acesso é renovado até o próximo vencimento. Também: "Não recebi"
+  (volta para a pagar, com motivo) e cancelar (com motivo). Nada é apagado.
 - **Pedidos do site em tempo real**: o painel confere a cada 20 s; pedido novo aparece com aviso, som (opcional),
   número no título da aba e notificação do sistema, sem recarregar a página.
 - Itens são **desativados**, nunca apagados (preserva histórico de pacotes e agendamentos). Exceção: **fotos** do

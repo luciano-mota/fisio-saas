@@ -28,8 +28,13 @@ public class FinanceController {
     public record Debtor(UUID patientId, String fullName, String whatsapp, BigDecimal charged, BigDecimal paid,
                          BigDecimal balance, LocalDate lastPaymentOn) {}
 
+    /**
+     * expenses: mensalidades da PhysioEvo pagas no mês (despesa confirmada pela plataforma); expensesPending: pagamento
+     * informado pela clínica e ainda não confirmado.
+     */
     public record Summary(String month, BigDecimal received, BigDecimal fees, BigDecimal net, BigDecimal toReceive,
-                          BigDecimal open, int payments, List<MethodTotal> byMethod) {}
+                          BigDecimal open, int payments, List<MethodTotal> byMethod, BigDecimal expenses,
+                          BigDecimal expensesPending) {}
 
     public record MethodTotal(String method, BigDecimal charged, BigDecimal fees, BigDecimal net) {}
 
@@ -111,7 +116,14 @@ public class FinanceController {
                   JOIN payments y ON y.id = r.payment_id AND y.clinic_id = r.clinic_id
                  WHERE r.clinic_id = ? AND r.received_on IS NULL AND NOT y.canceled""", BigDecimal.class, clinicId);
         BigDecimal open = debtors(auth).stream().map(Debtor::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new Summary(ym.toString(), received, fees, net, toReceive, open, count == null ? 0 : count, byMethod);
+        BigDecimal expenses = jdbc.queryForObject("""
+                SELECT coalesce(sum(paid_amount), 0) FROM subscription_charges
+                 WHERE clinic_id = ? AND status = 'PAID' AND paid_on BETWEEN ? AND ?""", BigDecimal.class, clinicId, from, to);
+        BigDecimal expensesPending = jdbc.queryForObject("""
+                SELECT coalesce(sum(amount), 0) FROM subscription_charges WHERE clinic_id = ? AND status = 'INFORMED'""",
+            BigDecimal.class, clinicId);
+        return new Summary(ym.toString(), received, fees, net, toReceive, open, count == null ? 0 : count, byMethod,
+            expenses, expensesPending);
     }
 
     @GetMapping("/finance/receivables")

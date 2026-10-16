@@ -10,6 +10,7 @@ import { ClinicTab } from './ClinicTab';
 import { FinanceTab, type FinanceSection } from './Finance';
 import { PatientsTab } from './Patients';
 import { PlatformNotices } from './PlatformNotices';
+import { SubscriptionNotice } from './Subscription';
 import { ReceiptPage } from './ReceiptPage';
 import { RequestsTab } from './Requests';
 import { RequestAlert, useRequestWatch } from './RequestWatch';
@@ -54,6 +55,8 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [more, setMore] = useState(false);
   const [noticeDone, setNoticeDone] = useState(false);
+  const [subDone, setSubDone] = useState(false);
+  const subReady = useCallback(() => setSubDone(true), []);
   const [platformDone, setPlatformDone] = useState(false);
   const platformReady = useCallback(() => setPlatformDone(true), []);
   const owner = me.role === 'OWNER';
@@ -116,14 +119,15 @@ export function Panel({ me, onLogout, onRefresh }: { me: Me; onLogout: () => voi
 
         <main className="content">
           <AccessNotice email={me.email} onReady={() => setNoticeDone(true)} />
-          <PlatformNotices active={noticeDone} onReady={platformReady} />
+          <SubscriptionNotice email={me.email} owner={owner} active={noticeDone} onReady={subReady} />
+          <PlatformNotices active={subDone} onReady={platformReady} />
           {!owner && <p className="notice small">Você está como colaborador: pode consultar, mas só a responsável altera.</p>}
           {tab === 'hoje' && <TodayTab owner={owner} profile={profile} pendingRequests={pending} />}
           {tab === 'agenda' && <AgendaTab owner={owner} action={sub} />}
           {tab === 'solicitacoes' && <RequestsTab owner={owner} onChanged={watch.refresh} version={watch.version} />}
           {tab === 'pacientes' && <PatientsTab owner={owner} patientId={sub} clinicName={name} />}
           {tab === 'financeiro' && <FinanceTab owner={owner} clinicName={name}
-                                              section={(['devendo', 'pagamentos', 'receber', 'maquininhas'].includes(sub ?? '') ? sub : 'resumo') as FinanceSection} />}
+                                              section={(['devendo', 'pagamentos', 'receber', 'maquininhas', 'assinatura'].includes(sub ?? '') ? sub : 'resumo') as FinanceSection} />}
           {tab === 'catalogo' && <CatalogTab owner={owner} section={sub === 'pacotes' ? 'pacotes' : 'servicos'} />}
           {tab === 'site' && profile && <SiteTab owner={owner} profile={profile} onSaved={saved} onLogoChange={setProfile} />}
           {tab === 'conta' && <AccountTab me={me} />}

@@ -27,6 +27,21 @@ export type AdminLogEntry = {
 };
 export type AdminClinicDetail = { clinic: AdminClinic; history: AdminLogEntry[] };
 
+/** Mensalidade da PhysioEvo: OPEN (a pagar), INFORMED (clínica avisou que pagou), PAID (confirmada), CANCELED. */
+export type SubscriptionCharge = {
+  id: string; clinicId: string; clinicName: string; referenceMonth: string; description: string; amount: number; dueOn: string;
+  status: 'OPEN' | 'INFORMED' | 'PAID' | 'CANCELED'; overdue: boolean; informedAt: string | null; informedBy: string | null;
+  paidOn: string | null; paidAmount: number | null; method: string | null; confirmedBy: string | null; notes: string | null;
+};
+export type SubscriptionPlan = { planPrice: number | null; billingDay: number | null };
+export type MySubscription = { plan: SubscriptionPlan; pixAvailable: boolean; charges: SubscriptionCharge[] };
+export type PlatformPixCharge = { code: string; qrSvg: string; amount: number; receiver: string };
+export type MoneyTotal = { count: number; amount: number };
+export type AdminFinance = {
+  month: string; today: string; mrr: number; expected: MoneyTotal; received: MoneyTotal; informed: MoneyTotal; open: MoneyTotal;
+  overdue: MoneyTotal; charges: SubscriptionCharge[];
+};
+
 /** Avisos da plataforma para as clínicas. */
 export type NoticeLevel = 'INFO' | 'IMPORTANT' | 'URGENT';
 export type NoticeDisplay = 'BANNER' | 'MODAL';
@@ -140,6 +155,8 @@ export type Debtor = {
 };
 export type FinanceSummary = {
   month: string; received: number; fees: number; net: number; toReceive: number; open: number; payments: number;
+  /** Mensalidades da PhysioEvo pagas no mês (despesa) e informadas aguardando confirmação. */
+  expenses: number; expensesPending: number;
   byMethod: { method: PaymentMethod; charged: number; fees: number; net: number }[];
 };
 export type Receivable = {
