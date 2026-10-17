@@ -1,6 +1,7 @@
 package com.fisiosaas.finance;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fisiosaas.finance.CardFees.Calculation;
 import com.fisiosaas.finance.CardFees.Machine;
@@ -49,14 +50,32 @@ class CardFeesTest {
         assertThat(debit.feeAmount()).isEqualByComparingTo("1.79");
         assertThat(debit.receivables()).singleElement().satisfies(r -> assertThat(r.dueOn()).isEqualTo(DAY.plusDays(1)));
 
-        Machine anticipated = new Machine(money("1.99"), money("3.49"), Map.of(), money("0.50"), 1, 1, true);
+        Machine anticipated = new Machine(money("1.99"), money("3.49"), Map.of(6, money("3.49")), money("0.50"), 1, 1, true);
         Calculation credit = CardFees.calculate(money("300"), Method.CREDITO, 6, anticipated, false, DAY);
-        assertThat(credit.feePercent()).isEqualByComparingTo("3.49"); // sem taxa para 6x: usa a do crédito
+        assertThat(credit.feePercent()).isEqualByComparingTo("3.49"); // taxa 6x configurada explicitamente
         assertThat(credit.feeAmount()).isEqualByComparingTo("10.97"); // 10,47 + 0,50 fixo
         assertThat(credit.receivables()).singleElement().satisfies(r -> assertThat(r.dueOn()).isEqualTo(DAY.plusDays(1)));
 
         Calculation cash = CardFees.calculate(money("90"), Method.PIX, 1, null, true, DAY);
         assertThat(cash.netAmount()).isEqualByComparingTo("90.00");
         assertThat(cash.receivables()).isEmpty();
+    }
+
+    @Test
+    void creditoAVistaEscolheTaxaEDataDeAcordoComPrazo() {
+        Machine machine = new Machine(money("1.99"), money("2.00"), Map.of(3, money("4.99")),
+            BigDecimal.ZERO, 1, 30, false,
+            Map.of(0, money("5.00"), 14, money("3.50"), 30, money("2.00")));
+        for (int days : new int[] { 0, 14, 30 }) {
+            Calculation c = CardFees.calculate(money("1000"), Method.CREDITO, 1, machine, false, DAY, days);
+            assertThat(c.receivables()).singleElement().satisfies(r -> assertThat(r.dueOn()).isEqualTo(DAY.plusDays(days)));
+            assertThat(c.netAmount()).isEqualByComparingTo(days == 0 ? "950.00" : days == 14 ? "965.00" : "980.00");
+        }
+        assertThatThrownBy(() -> CardFees.calculate(money("100"), Method.CREDITO, 1, machine, false, DAY, 7))
+            .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("não configurado");
+        assertThatThrownBy(() -> CardFees.calculate(money("100"), Method.CREDITO, 2, machine, false, DAY))
+            .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("2x");
+        Calculation parcelado = CardFees.calculate(money("600"), Method.CREDITO, 3, machine, false, DAY);
+        assertThat(parcelado.feePercent()).isEqualByComparingTo("4.99");
     }
 }
