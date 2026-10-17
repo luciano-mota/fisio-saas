@@ -79,14 +79,17 @@ export function PaymentSheet({ patientId: fixedPatient, target, onClose, onSaved
     setPreview(null);
     setPreviewError('');
     if (!valid || (card && !machineId)) return;
+    // Evita que uma prévia antiga sobrescreva os valores quando prazo, maquininha ou parcelas mudam rapidamente.
+    let active = true;
     const timer = setTimeout(() => {
       api<PaymentPreview>('/api/v1/payments/preview', 'POST', {
         method, machineId: card ? machineId : null, installments: method === 'CREDITO' ? validInstallments : 1,
         settlementDays: method === 'CREDITO' && validInstallments === 1 ? selectedTerm?.days : null,
         amount: value, paidOn
-      }).then(setPreview).catch(e => setPreviewError((e as Error).message));
+      }).then(result => { if (active) setPreview(result); })
+        .catch(e => { if (active) setPreviewError((e as Error).message); });
     }, 250);
-    return () => clearTimeout(timer);
+    return () => { active = false; clearTimeout(timer); };
   }, [value, valid, method, machineId, validInstallments, selectedTerm?.days, paidOn, card]);
 
   function chooseTarget(key: string) {
