@@ -7,11 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Cálculo da taxa da maquininha (função pura). Sem repasse: o paciente paga o valor e a clínica recebe o valor menos a
- * taxa. Com repasse: cobra-se valor ÷ (1 − taxa) para a clínica receber o valor cheio (multiplicar por (1 + taxa)
- * daria menos). Também gera os recebíveis: débito e crédito à vista/antecipado numa data só; parcelado, um por parcela.
- */
+/** Cálculo puro das taxas, valor líquido e recebíveis das maquininhas. */
 public final class CardFees {
     private CardFees() {}
 
@@ -19,9 +15,17 @@ public final class CardFees {
 
     public enum Method { DINHEIRO, PIX, DEBITO, CREDITO }
 
-    /** Taxas da maquininha: % débito, % crédito à vista, % por nº de parcelas, taxa fixa (R$) e prazos. */
+    /** A taxa de 1x varia por prazo; as taxas de parcelamento variam por quantidade de parcelas. */
     public record Machine(BigDecimal debitFee, BigDecimal creditFee, Map<Integer, BigDecimal> installmentFees,
-                          BigDecimal fixedFee, int debitDays, int creditDays, boolean anticipated) {}
+                          BigDecimal fixedFee, int debitDays, int creditDays, boolean anticipated,
+                          Map<Integer, BigDecimal> creditTerms) {
+        /** Construtor usado por clientes internos legados; preserva o prazo padrão. */
+        public Machine(BigDecimal debitFee, BigDecimal creditFee, Map<Integer, BigDecimal> installmentFees,
+                       BigDecimal fixedFee, int debitDays, int creditDays, boolean anticipated) {
+            this(debitFee, creditFee, installmentFees, fixedFee, debitDays, creditDays, anticipated,
+                Map.of(creditDays, creditFee));
+        }
+    }
 
     public record Receivable(int installment, LocalDate dueOn, BigDecimal amount) {}
 
@@ -30,13 +34,41 @@ public final class CardFees {
 
     public static Calculation calculate(BigDecimal amount, Method method, int installments, Machine machine,
                                         boolean passFee, LocalDate paidOn) {
+        return calculate(amount, method, installments, machine, passFee, paidOn, null);
+    }
+
+    /** settlementDays é válido apenas no crédito à vista; null usa o prazo padrão. */
+    public static Calculation calculate(BigDecimal amount, Method method, int installments, Machine machine,
+                                        boolean passFee, LocalDate paidOn, Integer settlementDays) {
+        if (installments < 1 || installments > 12) throw new IllegalArgumentException("Número de parcelas inválido");
+        if (method != Method.CREDITO && settlementDays != null) {
+            throw new IllegalArgumentException("Prazo de crédito informado para outra forma de pagamento");
+        }
+        if (method != Method.CREDITO && installments > 1) {
+            throw new IllegalArgumentException("Parcelamento só no crédito");
+        }
         BigDecimal value = amount.setScale(2, RoundingMode.HALF_UP);
         if (method == Method.DINHEIRO || method == Method.PIX) {
             return new Calculation(BigDecimal.ZERO.setScale(2), value, BigDecimal.ZERO.setScale(2), value, List.of());
         }
-        BigDecimal percent = method == Method.DEBITO ? machine.debitFee()
-            : installments <= 1 ? machine.creditFee()
-            : machine.installmentFees().getOrDefault(installments, machine.creditFee());
+        if (machine == null) throw new IllegalArgumentException("Escolha a maquininha");
+        int days = machine.creditDays();
+        BigDecimal percent;
+        if (method == Method.DEBITO) {
+            percent = machine.debitFee();
+        } else if (installments == 1) {
+            days = settlementDays == null ? machine.creditDays() : settlementDays;
+            percent = machine.creditTerms().get(days);
+            if (percent == null) throw new IllegalArgumentException("Prazo de recebimento não configurado para esta maquininha");
+        } else {
+            if (settlementDays != null) {
+                throw new IllegalArgumentException("Prazo de recebimento individual só vale para crédito à vista");
+            }
+            percent = machine.installmentFees().get(installments);
+            if (percent == null) {
+                throw new IllegalArgumentException("Taxa de crédito em " + installments + "x não configurada para esta maquininha");
+            }
+        }
         BigDecimal rate = percent.divide(HUNDRED, 10, RoundingMode.HALF_UP);
         BigDecimal fixed = machine.fixedFee().setScale(2, RoundingMode.HALF_UP);
 
@@ -54,7 +86,9 @@ public final class CardFees {
         List<Receivable> receivables = new ArrayList<>();
         if (method == Method.DEBITO) {
             receivables.add(new Receivable(1, paidOn.plusDays(machine.debitDays()), net));
-        } else if (installments <= 1 || machine.anticipated()) {
+        } else if (installments == 1) {
+            receivables.add(new Receivable(1, paidOn.plusDays(days), net));
+        } else if (machine.anticipated()) {
             receivables.add(new Receivable(1, paidOn.plusDays(machine.creditDays()), net));
         } else {
             BigDecimal part = net.divide(BigDecimal.valueOf(installments), 2, RoundingMode.DOWN);
