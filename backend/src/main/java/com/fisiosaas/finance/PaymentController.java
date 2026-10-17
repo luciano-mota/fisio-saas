@@ -39,17 +39,26 @@ public class PaymentController {
         @NotNull Method method,
         UUID machineId,
         @Min(1) @Max(12) Integer installments,
+        @Min(0) @Max(60) Integer settlementDays,
         @NotNull @DecimalMin(value = "0.01") @Digits(integer = 8, fraction = 2) BigDecimal amount,
         LocalDate paidOn,
-        @Size(max = 300) String notes) {}
+        @Size(max = 300) String notes) {
+        /** Mantém as chamadas internas dos agendamentos Pix compatíveis. */
+        public PaymentRequest(UUID patientId, UUID patientPackageId, UUID appointmentId, Method method,
+                              UUID machineId, Integer installments, BigDecimal amount, LocalDate paidOn, String notes) {
+            this(patientId, patientPackageId, appointmentId, method, machineId, installments, null, amount, paidOn, notes);
+        }
+    }
 
     /** Prévia do cálculo (mesmas regras do registro), para o painel mostrar taxa e líquido antes de salvar. */
     public record PreviewRequest(@NotNull Method method, UUID machineId, @Min(1) @Max(12) Integer installments,
-                                 @NotNull @DecimalMin(value = "0.01") @Digits(integer = 8, fraction = 2) BigDecimal amount) {}
+                                 @Min(0) @Max(60) Integer settlementDays,
+                                 @NotNull @DecimalMin(value = "0.01") @Digits(integer = 8, fraction = 2) BigDecimal amount,
+                                 LocalDate paidOn) {}
 
     public record PaymentView(UUID id, UUID patientId, String patientName, UUID patientPackageId, String packageName,
                               UUID appointmentId, LocalDate appointmentDate, String method, UUID machineId, String machineName,
-                              int installments, BigDecimal amount, BigDecimal chargedAmount, BigDecimal feePercent,
+                              int installments, Integer settlementDays, BigDecimal amount, BigDecimal chargedAmount, BigDecimal feePercent,
                               BigDecimal feeAmount, BigDecimal netAmount, LocalDate paidOn, String notes, boolean canceled) {}
 
     static final String SELECT = """
@@ -67,7 +76,7 @@ public class PaymentController {
         rs.getObject("patient_id", UUID.class), rs.getString("patient_name"), rs.getObject("patient_package_id", UUID.class),
         rs.getString("package_name"), rs.getObject("appointment_id", UUID.class), rs.getObject("appointment_date", LocalDate.class),
         rs.getString("method"), rs.getObject("machine_id", UUID.class), rs.getString("machine_name"), rs.getInt("installments"),
-        rs.getBigDecimal("amount"), rs.getBigDecimal("charged_amount"), rs.getBigDecimal("fee_percent"),
+        rs.getObject("settlement_days", Integer.class), rs.getBigDecimal("amount"), rs.getBigDecimal("charged_amount"), rs.getBigDecimal("fee_percent"),
         rs.getBigDecimal("fee_amount"), rs.getBigDecimal("net_amount"), rs.getObject("paid_on", LocalDate.class),
         rs.getString("notes"), rs.getBoolean("canceled"));
 
@@ -92,7 +101,8 @@ public class PaymentController {
     @PostMapping("/payments/preview")
     public Calculation preview(Authentication auth, @Valid @RequestBody PreviewRequest body) {
         UUID clinicId = current.require(auth).clinicId();
-        return calculate(clinicId, body.method(), body.machineId(), body.installments(), body.amount(), today(clinicId));
+        return calculate(clinicId, body.method(), body.machineId(), body.installments(), body.settlementDays(),
+            body.amount(), body.paidOn() == null ? today(clinicId) : body.paidOn());
     }
 
     @PostMapping("/payments")
@@ -116,15 +126,19 @@ public class PaymentController {
 
         LocalDate paidOn = body.paidOn() == null ? today(clinicId) : body.paidOn();
         int installments = body.installments() == null ? 1 : body.installments();
-        Calculation calc = calculate(clinicId, body.method(), body.machineId(), installments, body.amount(), paidOn);
+        Calculation calc = calculate(clinicId, body.method(), body.machineId(), installments, body.settlementDays(),
+            body.amount(), paidOn);
+        Integer chosenDays = body.method() == Method.CREDITO && installments == 1
+            ? Math.toIntExact(ChronoUnit.DAYS.between(paidOn, calc.receivables().get(0).dueOn()))
+            : null;
         UUID id = UUID.randomUUID();
         boolean card = body.method() == Method.DEBITO || body.method() == Method.CREDITO;
         jdbc.update("""
             INSERT INTO payments(id, clinic_id, patient_id, patient_package_id, appointment_id, method, machine_id, installments,
-                                 amount, charged_amount, fee_percent, fee_amount, net_amount, paid_on, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                 settlement_days, amount, charged_amount, fee_percent, fee_amount, net_amount, paid_on, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             id, clinicId, body.patientId(), body.patientPackageId(), body.appointmentId(), body.method().name(),
-            card ? body.machineId() : null, body.method() == Method.CREDITO ? installments : 1, body.amount(),
+            card ? body.machineId() : null, body.method() == Method.CREDITO ? installments : 1, chosenDays, body.amount(),
             calc.chargedAmount(), calc.feePercent(), calc.feeAmount(), calc.netAmount(), paidOn,
             body.notes() == null || body.notes().isBlank() ? null : body.notes().trim());
         for (Receivable r : calc.receivables()) {
@@ -156,15 +170,15 @@ public class PaymentController {
             .stream().findFirst().orElseThrow(NoSuchElementException::new);
     }
 
-    private Calculation calculate(UUID clinicId, Method method, UUID machineId, Integer installments, BigDecimal amount,
-                                  LocalDate paidOn) {
+    private Calculation calculate(UUID clinicId, Method method, UUID machineId, Integer installments,
+                                  Integer settlementDays, BigDecimal amount, LocalDate paidOn) {
         boolean card = method == Method.DEBITO || method == Method.CREDITO;
         if (card && machineId == null) throw new IllegalArgumentException("Escolha a maquininha");
         int n = installments == null ? 1 : installments;
         if (n > 1 && method != Method.CREDITO) throw new IllegalArgumentException("Parcelamento só no crédito");
         Boolean pass = jdbc.queryForObject("SELECT pass_card_fee FROM clinics WHERE id = ?", Boolean.class, clinicId);
         return CardFees.calculate(amount, method, n, card ? machines.fees(clinicId, machineId) : null,
-            Boolean.TRUE.equals(pass), paidOn);
+            Boolean.TRUE.equals(pass), paidOn, settlementDays);
     }
 
     /** Pacote/sessão precisa ser da clínica E do paciente informado. */

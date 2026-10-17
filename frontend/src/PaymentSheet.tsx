@@ -24,6 +24,7 @@ export function PaymentSheet({ patientId: fixedPatient, target, onClose, onSaved
   const [method, setMethod] = useState<Method>('PIX');
   const [machineId, setMachineId] = useState('');
   const [installments, setInstallments] = useState(1);
+  const [settlementDays, setSettlementDays] = useState<number | null>(null);
   const [paidOn, setPaidOn] = useState(today());
   const [notes, setNotes] = useState('');
   const [preview, setPreview] = useState<PaymentPreview | null>(null);
@@ -64,6 +65,13 @@ export function PaymentSheet({ patientId: fixedPatient, target, onClose, onSaved
 
   const value = parseMoney(amount);
   const card = isCard(method);
+  const selectedMachine = machines.find(m => m.id === machineId);
+  const supportedInstallments = [1, ...(selectedMachine?.installmentFees.map(f => f.installments) ?? [])];
+  const validInstallments = supportedInstallments.includes(installments) ? installments : 1;
+  const defaultDays = selectedMachine?.creditDays;
+  const selectedTerm = selectedMachine?.creditTerms.find(t => t.days === settlementDays)
+    ?? selectedMachine?.creditTerms.find(t => t.days === defaultDays)
+    ?? selectedMachine?.creditTerms[0];
   const valid = value !== null && Number.isFinite(value) && value > 0;
 
   // Prévia ao vivo (com uma pequena espera para não chamar a cada tecla).
@@ -73,11 +81,13 @@ export function PaymentSheet({ patientId: fixedPatient, target, onClose, onSaved
     if (!valid || (card && !machineId)) return;
     const timer = setTimeout(() => {
       api<PaymentPreview>('/api/v1/payments/preview', 'POST', {
-        method, machineId: card ? machineId : null, installments: method === 'CREDITO' ? installments : 1, amount: value
+        method, machineId: card ? machineId : null, installments: method === 'CREDITO' ? validInstallments : 1,
+        settlementDays: method === 'CREDITO' && validInstallments === 1 ? selectedTerm?.days : null,
+        amount: value, paidOn
       }).then(setPreview).catch(e => setPreviewError((e as Error).message));
     }, 250);
     return () => clearTimeout(timer);
-  }, [value, valid, method, machineId, installments, card]);
+  }, [value, valid, method, machineId, validInstallments, selectedTerm?.days, paidOn, card]);
 
   function chooseTarget(key: string) {
     setTargetKey(key);
@@ -94,7 +104,8 @@ export function PaymentSheet({ patientId: fixedPatient, target, onClose, onSaved
     try {
       const saved = await api<Payment>('/api/v1/payments', 'POST', {
         patientId, patientPackageId: kind === 'PACOTE' ? id : null, appointmentId: kind === 'SESSAO' ? id : null,
-        method, machineId: card ? machineId : null, installments: method === 'CREDITO' ? installments : 1,
+        method, machineId: card ? machineId : null, installments: method === 'CREDITO' ? validInstallments : 1,
+        settlementDays: method === 'CREDITO' && validInstallments === 1 ? selectedTerm?.days : null,
         amount: value, paidOn, notes: notes || null
       });
       onSaved(saved);
@@ -162,12 +173,24 @@ export function PaymentSheet({ patientId: fixedPatient, target, onClose, onSaved
             </label>
             {method === 'CREDITO' && (
               <label>Parcelas
-                <select value={installments} onChange={e => setInstallments(Number(e.target.value))}>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n === 1 ? 'À vista' : `${n}x`}</option>)}
+                <select value={validInstallments} onChange={e => setInstallments(Number(e.target.value))}>
+                  {supportedInstallments.map(n => <option key={n} value={n}>{n === 1 ? 'À vista' : `${n}x`}</option>)}
                 </select>
               </label>
             )}
           </div>
+        )}
+
+        {card && method === 'CREDITO' && validInstallments === 1 && selectedMachine && (
+          <label>Quando receber o crédito à vista
+            <select value={selectedTerm?.days ?? ''} onChange={e => setSettlementDays(Number(e.target.value))}>
+              {selectedMachine.creditTerms.map(t => (
+                <option key={t.days} value={t.days}>
+                  {t.days === 0 ? 'Na hora' : `Em ${t.days} dias`} · taxa {String(t.fee).replace('.', ',')}%
+                </option>
+              ))}
+            </select>
+          </label>
         )}
 
         {preview && card && (
@@ -193,7 +216,8 @@ export function PaymentSheet({ patientId: fixedPatient, target, onClose, onSaved
         {error && <p className="error-box" role="alert">{error}</p>}
         <div className="sheet-actions">
           <button type="button" onClick={onClose}>Cancelar</button>
-          <button className="primary" disabled={busy || !patientId || (card && machines.length === 0)}>Registrar pagamento</button>
+          <button className="primary" disabled={busy || !patientId || (card && (!selectedMachine ||
+            (method === 'CREDITO' && validInstallments === 1 && !selectedTerm)))}>Registrar pagamento</button>
         </div>
       </form>
     </Sheet>

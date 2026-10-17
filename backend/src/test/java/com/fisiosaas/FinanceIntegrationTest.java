@@ -117,6 +117,68 @@ class FinanceIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void creditoAVistaRespeitaPrazoTaxaSnapshotEIsolamento() throws Exception {
+        String advanced = create("/api/v1/card-machines", OWNER_A, """
+            {"name":"Maquininha com prazos","debitFee":1.99,"creditFee":2,"creditDays":30,
+             "creditTerms":[{"days":0,"fee":5},{"days":14,"fee":3.5},{"days":30,"fee":2}],
+             "installmentFees":[{"installments":3,"fee":4.99}]}""");
+
+        for (int days : new int[] { 0, 14, 30 }) {
+            double net = days == 0 ? 950 : days == 14 ? 965 : 980;
+            send(post("/api/v1/payments/preview"), OWNER_A, """
+                {"method":"CREDITO","machineId":"%s","installments":1,"settlementDays":%d,
+                 "paidOn":"%s","amount":1000}""".formatted(advanced, days, today))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.netAmount").value(net))
+                .andExpect(jsonPath("$.receivables[0].dueOn").value(today.plusDays(days).toString()));
+        }
+        send(post("/api/v1/payments/preview"), OWNER_A, """
+            {"method":"CREDITO","machineId":"%s","installments":2,"amount":100}""".formatted(advanced))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value(
+                "Taxa de crédito em 2x não configurada para esta maquininha"));
+
+        String paid = create("/api/v1/payments", OWNER_A, """
+            {"patientId":"%s","method":"CREDITO","machineId":"%s","installments":1,
+             "settlementDays":14,"paidOn":"%s","amount":1000}""".formatted(maria, advanced, today));
+        mvc.perform(get("/api/v1/payments?from=" + today + "&to=" + today).with(user(OWNER_A)))
+            .andExpect(jsonPath("$[?(@.id == '" + paid + "')].settlementDays").value(14));
+        mvc.perform(get("/api/v1/finance/receivables").with(user(OWNER_A)))
+            .andExpect(jsonPath("$[0].dueOn").value(today.plusDays(14).toString()));
+
+        // A alteração da tabela não pode recalcular um pagamento antigo.
+        send(put("/api/v1/card-machines/" + advanced), OWNER_A, """
+            {"name":"Maquininha com prazos","debitFee":1.99,"creditFee":2,"creditDays":30,
+             "creditTerms":[{"days":30,"fee":2}],"installmentFees":[{"installments":3,"fee":6}]}""")
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/payments?from=" + today + "&to=" + today).with(user(OWNER_A)))
+            .andExpect(jsonPath("$[?(@.id == '" + paid + "')].netAmount").value(965.0));
+        mvc.perform(get("/api/v1/finance/receivables").with(user(OWNER_A)))
+            .andExpect(jsonPath("$[0].dueOn").value(today.plusDays(14).toString()));
+        send(post("/api/v1/payments/preview"), OWNER_A, """
+            {"method":"CREDITO","machineId":"%s","settlementDays":14,"amount":100}""".formatted(advanced))
+            .andExpect(status().isBadRequest());
+
+        // Nem a configuração nem o cálculo de outra clínica podem ser consultados.
+        send(post("/api/v1/payments/preview"), OWNER_B, """
+            {"method":"CREDITO","machineId":"%s","settlementDays":30,"amount":100}""".formatted(advanced))
+            .andExpect(status().isNotFound());
+        send(put("/api/v1/card-machines/" + advanced), OWNER_B, """
+            {"name":"Intrusa","debitFee":1,"creditFee":1,"creditDays":30}""")
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void rejeitaTabelaComPrazoRepetidoOuSemPrazoPadrao() throws Exception {
+        send(post("/api/v1/card-machines"), OWNER_A, """
+            {"name":"Duplicada","debitFee":1,"creditFee":2,"creditDays":30,
+             "creditTerms":[{"days":30,"fee":2},{"days":30,"fee":3}]}""")
+            .andExpect(status().isBadRequest());
+        send(post("/api/v1/card-machines"), OWNER_A, """
+            {"name":"Sem padrão","debitFee":1,"creditFee":2,"creditDays":30,
+             "creditTerms":[{"days":14,"fee":3}]}""")
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void repasseDaTaxaCobraMaisEAbateOValor() throws Exception {
         send(put("/api/v1/clinic"), OWNER_A, "{\"displayName\":\"Fisio Ana\",\"publicPageEnabled\":true,\"passCardFee\":true}")
             .andExpect(jsonPath("$.passCardFee").value(true));

@@ -337,11 +337,12 @@ function ReceivablesSection({ owner }: { owner: boolean }) {
 }
 
 type MachineForm = {
-  id?: string; name: string; debitFee: string; creditFee: string; fixedFee: string; debitDays: string; creditDays: string;
-  anticipated: boolean; fees: Record<number, string>;
+  id?: string; name: string; debitFee: string; fixedFee: string; debitDays: string; creditDays: string;
+  anticipated: boolean; fees: Record<number, string>; creditTerms: Record<number, string>;
 };
 const EMPTY_MACHINE: MachineForm = {
-  name: '', debitFee: '', creditFee: '', fixedFee: '', debitDays: '1', creditDays: '30', anticipated: false, fees: {}
+  name: '', debitFee: '', fixedFee: '', debitDays: '1', creditDays: '30',
+  anticipated: false, fees: {}, creditTerms: { 30: '' }
 };
 const pct = (n: number) => String(n).replace('.', ',');
 
@@ -355,9 +356,10 @@ function MachinesSection({ owner }: { owner: boolean }) {
 
   function edit(m: CardMachine) {
     setEditing({
-      id: m.id, name: m.name, debitFee: pct(m.debitFee), creditFee: pct(m.creditFee), fixedFee: m.fixedFee ? moneyInput(m.fixedFee) : '',
+      id: m.id, name: m.name, debitFee: pct(m.debitFee), fixedFee: m.fixedFee ? moneyInput(m.fixedFee) : '',
       debitDays: String(m.debitDays), creditDays: String(m.creditDays), anticipated: m.anticipated,
-      fees: Object.fromEntries(m.installmentFees.map(f => [f.installments, pct(f.fee)]))
+      fees: Object.fromEntries(m.installmentFees.map(f => [f.installments, pct(f.fee)])),
+      creditTerms: Object.fromEntries(m.creditTerms.map(t => [t.days, pct(t.fee)]))
     });
   }
   async function deactivate(m: CardMachine) {
@@ -386,7 +388,7 @@ function MachinesSection({ owner }: { owner: boolean }) {
               <strong>{m.name}</strong>{!m.active && <span className="pill">desativada</span>}
               <div className="meta">
                 <span>débito {pct(m.debitFee)}%</span>
-                <span>crédito {pct(m.creditFee)}%</span>
+                <span>crédito 1x: {m.creditTerms.map(t => `D+${t.days} ${pct(t.fee)}%`).join(' · ')}</span>
                 {m.installmentFees.length > 0 && <span>parcelado {pct(m.installmentFees[0].fee)}% a {pct(m.installmentFees[m.installmentFees.length - 1].fee)}%</span>}
                 {m.fixedFee > 0 && <span>+ {brl(m.fixedFee)} por venda</span>}
                 <span>{m.anticipated ? 'recebe tudo antecipado' : `crédito cai em ${m.creditDays} dias`}</span>
@@ -407,7 +409,18 @@ function MachinesSection({ owner }: { owner: boolean }) {
 function MachineSheet({ form, setForm, onSaved }: { form: MachineForm; setForm: (f: MachineForm | null) => void; onSaved: () => void }) {
   const [error, setError] = useState('');
   const [showInstallments, setShowInstallments] = useState(Object.keys(form.fees).length > 0);
+  const [newDay, setNewDay] = useState('');
   const set = (key: keyof MachineForm, value: string | boolean) => setForm({ ...form, [key]: value });
+  const termDays = [...new Set([0, 14, 30, Number(form.creditDays), ...Object.keys(form.creditTerms).map(Number)])]
+    .filter(n => Number.isInteger(n) && n >= 0 && n <= 60).sort((a, b) => a - b);
+  function addDay() {
+    const days = Number(newDay);
+    if (!newDay.trim() || !Number.isInteger(days) || days < 0 || days > 60) {
+      setError('Informe um prazo entre 0 e 60 dias.'); return;
+    }
+    setForm({ ...form, creditTerms: { ...form.creditTerms, [days]: form.creditTerms[days] ?? '' } });
+    setNewDay('');
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -420,10 +433,21 @@ function MachineSheet({ form, setForm, onSaved }: { form: MachineForm; setForm: 
     try {
       const installmentFees = Object.entries(form.fees).filter(([, v]) => v.trim())
         .map(([n, v]) => ({ installments: Number(n), fee: percent(v, `Taxa em ${n}x`) }));
+      const creditTerms = Object.entries(form.creditTerms).filter(([, v]) => v.trim())
+        .map(([days, fee]) => ({ days: Number(days), fee: percent(fee, `Crédito D+${days}`) }));
+      const creditDays = Number(form.creditDays);
+      if (!Number.isInteger(creditDays) || creditDays < 0 || creditDays > 60) throw new Error('Prazo padrão inválido.');
+      const defaultTerm = creditTerms.find(t => t.days === creditDays);
+      if (!defaultTerm) throw new Error('Preencha a taxa do prazo padrão de crédito à vista.');
+      const fixedFee = form.fixedFee ? parseMoney(form.fixedFee) : 0;
+      if (fixedFee === null || !Number.isFinite(fixedFee) || fixedFee < 0 || fixedFee > 100) {
+        throw new Error('Tarifa fixa: informe um valor entre R$ 0 e R$ 100.');
+      }
+      const debitDays = Number(form.debitDays);
+      if (!Number.isInteger(debitDays) || debitDays < 0 || debitDays > 60) throw new Error('Prazo de débito inválido.');
       const payload = {
-        name: form.name, debitFee: percent(form.debitFee, 'Débito'), creditFee: percent(form.creditFee, 'Crédito à vista'),
-        fixedFee: form.fixedFee ? percent(form.fixedFee, 'Tarifa fixa') : 0,
-        debitDays: Number(form.debitDays || 1), creditDays: Number(form.creditDays || 30), anticipated: form.anticipated, installmentFees
+        name: form.name, debitFee: percent(form.debitFee, 'Débito'), creditFee: defaultTerm.fee,
+        fixedFee, debitDays, creditDays, anticipated: form.anticipated, installmentFees, creditTerms
       };
       if (form.id) await api(`/api/v1/card-machines/${form.id}`, 'PUT', payload);
       else await api('/api/v1/card-machines', 'POST', payload);
@@ -435,14 +459,34 @@ function MachineSheet({ form, setForm, onSaved }: { form: MachineForm; setForm: 
     <Sheet title={form.id ? 'Editar maquininha' : 'Nova maquininha'} onClose={() => setForm(null)}>
       <form onInput={() => setError('')} className="form" onSubmit={submit}>
         <label>Nome<input required maxLength={60} placeholder="Ex.: Stone" value={form.name} onChange={e => set('name', e.target.value)} /></label>
-        <div className="row">
-          <label>Débito (%)<input inputMode="decimal" required placeholder="1,99" value={form.debitFee} onChange={e => set('debitFee', e.target.value)} /></label>
-          <label>Crédito à vista (%)<input inputMode="decimal" required placeholder="3,49" value={form.creditFee} onChange={e => set('creditFee', e.target.value)} /></label>
-        </div>
-        <div className="row">
-          <label>Débito cai em (dias)<input type="number" min={0} max={60} value={form.debitDays} onChange={e => set('debitDays', e.target.value)} /></label>
-          <label>Crédito cai em (dias)<input type="number" min={0} max={60} value={form.creditDays} onChange={e => set('creditDays', e.target.value)} /></label>
-        </div>
+        <label>Débito (%)<input inputMode="decimal" required placeholder="1,99" value={form.debitFee}
+                               onChange={e => set('debitFee', e.target.value)} /></label>
+        <label>Débito cai em (dias)<input type="number" min={0} max={60} value={form.debitDays}
+                                          onChange={e => set('debitDays', e.target.value)} /></label>
+        <fieldset className="field">
+          <legend>Crédito à vista (1x): taxa conforme o prazo para receber</legend>
+          <p className="muted small">Informe somente os prazos disponíveis na maquininha. A taxa já deve incluir a antecipação, se houver.</p>
+          <div className="installment-grid">
+            {termDays.map(days => (
+              <label key={days}>{days === 0 ? 'Na hora (D+0)' : `D+${days} dias`} (%)
+                <input inputMode="decimal" placeholder="Ex.: 3,49" aria-label={`Taxa de crédito D+${days}`}
+                       value={form.creditTerms[days] ?? ''}
+                       onChange={e => setForm({ ...form, creditTerms: { ...form.creditTerms, [days]: e.target.value } })} />
+              </label>
+            ))}
+          </div>
+          <div className="row">
+            <label>Prazo padrão (dias)
+              <select value={form.creditDays} onChange={e => set('creditDays', e.target.value)}>
+                {termDays.map(days => <option key={days} value={days}>D+{days}</option>)}
+              </select>
+            </label>
+            <label>Outro prazo (0 a 60 dias)
+              <span className="row"><input type="number" min={0} max={60} placeholder="Ex.: 7" value={newDay}
+                       onChange={e => setNewDay(e.target.value)} /><button type="button" onClick={addDay}>Adicionar</button></span>
+            </label>
+          </div>
+        </fieldset>
         <label>Tarifa fixa por venda (R$, opcional)<input inputMode="decimal" placeholder="0,00" value={form.fixedFee}
                                                           onChange={e => set('fixedFee', e.target.value)} /></label>
         <label className="switch"><input type="checkbox" checked={form.anticipated} onChange={e => set('anticipated', e.target.checked)} />
@@ -451,7 +495,7 @@ function MachineSheet({ form, setForm, onSaved }: { form: MachineForm; setForm: 
           ? <button type="button" className="link-button" onClick={() => setShowInstallments(true)}>+ Taxas do parcelado (2x a 12x)</button>
           : (
             <fieldset className="field">
-              <legend>Crédito parcelado (%) — em branco usa a taxa do crédito à vista</legend>
+              <legend>Crédito parcelado (%) — configure somente as parcelas aceitas</legend>
               <div className="installment-grid">
                 {Array.from({ length: 11 }, (_, i) => i + 2).map(n => (
                   <label key={n}>{n}x<input inputMode="decimal" value={form.fees[n] ?? ''} aria-label={`Taxa em ${n}x`}

@@ -154,15 +154,17 @@ export type BookingSent = {
   qrSvg: string | null; receiptToken: string | null;
 };
 export type InstallmentFee = { installments: number; fee: number };
+export type CreditTerm = { days: number; fee: number };
 export type CardMachine = {
   id: string; name: string; debitFee: number; creditFee: number; fixedFee: number; debitDays: number; creditDays: number;
-  anticipated: boolean; active: boolean; installmentFees: InstallmentFee[];
+  anticipated: boolean; active: boolean; installmentFees: InstallmentFee[]; creditTerms: CreditTerm[];
 };
 export type PaymentMethod = 'DINHEIRO' | 'PIX' | 'DEBITO' | 'CREDITO';
 export type Payment = {
   id: string; patientId: string; patientName: string; patientPackageId: string | null; packageName: string | null;
   appointmentId: string | null; appointmentDate: string | null; method: PaymentMethod; machineId: string | null;
-  machineName: string | null; installments: number; amount: number; chargedAmount: number; feePercent: number;
+  machineName: string | null; installments: number; settlementDays: number | null;
+  amount: number; chargedAmount: number; feePercent: number;
   feeAmount: number; netAmount: number; paidOn: string; notes: string | null; canceled: boolean;
 };
 export type PaymentPreview = {
